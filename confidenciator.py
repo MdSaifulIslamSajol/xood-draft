@@ -1,3 +1,4 @@
+
 import numpy as np
 import pandas as pd
 from torch.linalg import vector_norm
@@ -351,7 +352,6 @@ class Confidenciator:
         df["Min_out"] = -np.min(pred, axis=-1)
         # self.extreme_value_vector = df[self.feat_cols]
         print("returning add_prediction_and_features() with shape:", df.shape)
-        print(df.columns)
         return df
 
     def add_prediction_and_features_knn(self, df: pd.DataFrame):
@@ -564,3 +564,4 @@ class Confidenciator:
 def split_features(features: np.ndarray):
     print("confidenciator.py  ==>  split_features() ")
     return np.concatenate([- np.clip(features, 0, None), - np.clip(-features, 0, None)], axis=1)
+

@@ -1,5 +1,5 @@
 import os
-os.environ["CUDA_VISIBLE_DEVICES"]="7"
+os.environ["CUDA_VISIBLE_DEVICES"]="2"
 from pathlib import Path
 
 import numpy as np
@@ -84,7 +84,7 @@ class FeatureTester:
             if feature_model == "mahala":
                 print("It is goign in mahala")
                 print("running set  :",name)
-                self.data[name] = self.conf.add_prediction_and_features(
+                self.data[name] = self.conf.add_prediction_and_features_dl(
                     self.data[name]) # name = Train, Test, Val
             else:
                 print("ELSE PART IS GETTING EXECUTED")
@@ -100,7 +100,7 @@ class FeatureTester:
         print("\n\n  ##  Creating Out-Of-Distribution Sets  ##  ", flush=True)
         if feature_model == "mahala":
             print("It is goign in mahala")
-            self.ood = {name: self.conf.add_prediction_and_features(
+            self.ood = {name: self.conf.add_prediction_and_features_dl(
                 df) for name, df in out_of_dist(self.dataset).items()}
         else:
             print("It is goign in knn")
@@ -416,22 +416,22 @@ def test_ood(dataset, model, alpha):
     pred_clean_probs = []
     #ft.create_summary(ft.conf.predict_mahala, "x-ood-mahala")
 
-    # ft_mahala
-    ft_mahala = FeatureTester(dataset, model, "mahala", "")
-    pred_mahala, pred_clean_mahala = ft_mahala.create_summary_combine(
-        ft_mahala.conf.predict_mahala, "x-ood-mahala")
-    ft_mahala.taylor_table(pred_mahala, pred_clean_mahala,
-                            "x-ood-mahala-" + str(alpha), "mahala")
+    # # ft_mahala
+    # ft_mahala = FeatureTester(dataset, model, "mahala", "")
+    # pred_mahala, pred_clean_mahala = ft_mahala.create_summary_combine(
+    #     ft_mahala.conf.predict_mahala, "x-ood-mahala")
+    # ft_mahala.taylor_table(pred_mahala, pred_clean_mahala,
+    #                         "x-ood-mahala-" + str(alpha), "mahala")
 
     #
     
     # ft_knn
-    # ft_knn = FeatureTester(dataset, model, "", "knn")
-    # ft_knn.fit_knn(test=False)
-    # pred_knn, pred_clean_knn = ft_knn.create_summary_combine(
-    #     ft_knn.conf.predict_knn_faiss, "open-ood-knn")
-    # ft_knn.taylor_table(pred_knn, pred_clean_knn, "knn-" + str(alpha), "knn")
-    # # hist_plot_mahala_knn(pred_mahala,pred_knn,"mahala_knn")
+    ft_knn = FeatureTester(dataset, model, "", "knn")
+    ft_knn.fit_knn(test=False)
+    pred_knn, pred_clean_knn = ft_knn.create_summary_combine(
+        ft_knn.conf.predict_knn_faiss, "open-ood-knn")
+    ft_knn.taylor_table(pred_knn, pred_clean_knn, "knn-" + str(alpha), "knn")
+    # hist_plot_mahala_knn(pred_mahala,pred_knn,"mahala_knn")
     
     # if dataset == "imagenet":
     #     filename = "train_"+ str(dataset) + "_" + str(model) + "_"
@@ -546,4 +546,3 @@ if __name__ == "__main__":
     #     test_ood("imagenet", m)
     print("\nExecution Complete")
     print("--- %s seconds ---" % (time.time() - start_time))
-
