@@ -351,7 +351,6 @@ class Confidenciator:
         df["Min_out"] = -np.min(pred, axis=-1)
         # self.extreme_value_vector = df[self.feat_cols]
         print("returning add_prediction_and_features() with shape:", df.shape)
-        print(df.columns)
         return df
 
     def add_prediction_and_features_knn(self, df: pd.DataFrame):

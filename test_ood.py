@@ -84,7 +84,7 @@ class FeatureTester:
             if feature_model == "mahala":
                 print("It is goign in mahala")
                 print("running set  :",name)
-                self.data[name] = self.conf.add_prediction_and_features(
+                self.data[name] = self.conf.add_prediction_and_features_dl(
                     self.data[name]) # name = Train, Test, Val
             else:
                 print("ELSE PART IS GETTING EXECUTED")
@@ -100,7 +100,7 @@ class FeatureTester:
         print("\n\n  ##  Creating Out-Of-Distribution Sets  ##  ", flush=True)
         if feature_model == "mahala":
             print("It is goign in mahala")
-            self.ood = {name: self.conf.add_prediction_and_features(
+            self.ood = {name: self.conf.add_prediction_and_features_dl(
                 df) for name, df in out_of_dist(self.dataset).items()}
         else:
             print("It is goign in knn")
