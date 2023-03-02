@@ -188,12 +188,12 @@ class FeatureExtractor(nn.Module):
 
     def predict_knn(self, images):
         print("confidenciator.py  ==> FeatureExtractor.predict_knn()")
-        images = torch.tensor(images, dtype=torch.float32)
-        images = self.transform(images)
-        images = TensorDataset(images)
+        #images = torch.tensor(images, dtype=torch.float32)
+        #images = self.transform(images)
+        #images = TensorDataset(images)
         # images = DataLoader(images, batch_size=128)
         # changing this batch size for imagenet from 128 to 256
-        images = DataLoader(images, batch_size=256)
+        #images = DataLoader(images, batch_size=256)
 
         output = []
         pen_features = []
@@ -201,11 +201,12 @@ class FeatureExtractor(nn.Module):
             for i, data in enumerate(images):
                 # print("i Value: ", i)
                 #print("Self Features in forward funtion is : ", self._features.keys())
-                print("data[0].shape :",data[0].shape)
-                batch_size = data[0].shape
-                print("batch_size[0] :", batch_size[0])
+                #print("data[0].shape :",data[0].shape)
+                #batch_size = data[0].shape
+                #print("batch_size[0] :", batch_size[0])
                 
-                data = data[0].to(self.device)
+                #data = data[0].to(self.device)
+                data = data.to(self.device)
                 out, features = self.model.forward_knn2(data, return_feature_list = True)
                 # print("feature.shape :",feature.shape)
                 print("length of features :", len(features))
@@ -224,7 +225,7 @@ class FeatureExtractor(nn.Module):
                 # pen_features.append(np.squeeze(normalizer1))
                 # activation_log.append(np.squeeze(normalizer1))
                 
-                pen_features.append(normalizer(feature.data.cpu().numpy().reshape(int(batch_size[0]),dim , -1).mean(2)))
+                pen_features.append(normalizer(feature.data.cpu().numpy().reshape(int(data.shape[0]),dim , -1).mean(2)))
                 
                 if out is not None:
                     output.append(out)
