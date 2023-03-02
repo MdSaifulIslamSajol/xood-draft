@@ -206,7 +206,6 @@ class FeatureExtractor(nn.Module):
                 #print("batch_size[0] :", batch_size[0])
                 
                 #data = data[0].to(self.device)
-                data = data["data"]
                 data = data.to(self.device)
                 out, features = self.model.forward_knn2(data, return_feature_list = True)
                 # print("feature.shape :",feature.shape)
@@ -530,3 +529,4 @@ class Confidenciator:
 def split_features(features: np.ndarray):
     print("confidenciator.py  ==>  split_features() ")
     return np.concatenate([- np.clip(features, 0, None), - np.clip(-features, 0, None)], axis=1)
+
