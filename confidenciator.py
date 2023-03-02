@@ -156,7 +156,7 @@ class FeatureExtractor(nn.Module):
             for i, data in enumerate(images):
                 # print(f"Computing predictions: {i + 1}/{len(images)}             ", end="\r")
                 # print(" 
-                print("data shape: ", data.keys())
+                # print("data shape: ", data.keys())
                 label = data["label"]
                 data = data["data"]
                 
@@ -164,7 +164,7 @@ class FeatureExtractor(nn.Module):
                 #data = data[0].to(self.device)
                 data = data.to(self.device)
                 #data = torch.moveaxis(data, 1, 3)
-                print("size of data: ", data.shape)
+                # print("size of data: ", data.shape)
                 #data = torch.reshape(data, (-1,))
                 #print("size of data: ", data.shape)
                 
@@ -210,8 +210,8 @@ class FeatureExtractor(nn.Module):
                 data = data.to(self.device)
                 out, features = self.model.forward_knn2(data, return_feature_list = True)
                 # print("feature.shape :",feature.shape)
-                print("length of features :", len(features))
-                print("shape of final layer :", features[-1].shape)
+                # print("length of features :", len(features))
+                # print("shape of final layer :", features[-1].shape)
                 feature = features[-1]
 
                 # if len(features) == 0:

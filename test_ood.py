@@ -416,12 +416,12 @@ def test_ood(dataset, model, alpha):
     pred_clean_probs = []
     #ft.create_summary(ft.conf.predict_mahala, "x-ood-mahala")
 
-    # # ft_mahala
-    # ft_mahala = FeatureTester(dataset, model, "mahala", "")
-    # pred_mahala, pred_clean_mahala = ft_mahala.create_summary_combine(
-    #     ft_mahala.conf.predict_mahala, "x-ood-mahala")
-    # ft_mahala.taylor_table(pred_mahala, pred_clean_mahala,
-    #                         "x-ood-mahala-" + str(alpha), "mahala")
+    # ft_mahala
+    ft_mahala = FeatureTester(dataset, model, "mahala", "")
+    pred_mahala, pred_clean_mahala = ft_mahala.create_summary_combine(
+        ft_mahala.conf.predict_mahala, "x-ood-mahala")
+    ft_mahala.taylor_table(pred_mahala, pred_clean_mahala,
+                            "x-ood-mahala-" + str(alpha), "mahala")
 
     #
     
@@ -446,66 +446,47 @@ def test_ood(dataset, model, alpha):
     # with open('/home/saiful/confidence-magesh_MR/confidence-magesh/OpenOOD/pickle_files/'+filename+'pred_clean_mahala.pickle', 'wb') as handle4:
     #     pickle.dump(pred_clean_mahala, handle4, protocol=pickle.HIGHEST_PROTOCOL)
     
-    # # # # commenting for concatenated- untill f_ft_knn.taylor table
-    # # # pred_probs.append(pred_knn) 
-    # # # pred_clean_probs.append(pred_clean_knn)
+    # # # commenting for concatenated- untill f_ft_knn.taylor table
+    # # pred_probs.append(pred_knn) 
+    # # pred_clean_probs.append(pred_clean_knn)
     
-    # pred_arth = weighted_arthmetic_mean(pred_mahala, pred_knn, ft_mahala.conf.mahala_mean, ft_knn.conf.knn_mean, alpha)
-    # pred_geo = weighted_geometric_mean(pred_mahala, pred_knn, alpha)
-    # print("pred_arth Keys:", pred_arth.keys())
-    # pred_clean_arth = weighted_arthmetic_mean(pred_clean_mahala, pred_clean_knn, ft_mahala.conf.mahala_mean, ft_knn.conf.knn_mean, alpha)
+    # weighted_arthmetic_mean
+    pred_arth = weighted_arthmetic_mean(pred_mahala, pred_knn, ft_mahala.conf.mahala_mean, ft_knn.conf.knn_mean, alpha)
+    print("pred_arth Keys:", pred_arth.keys())
+    pred_clean_arth = weighted_arthmetic_mean(pred_clean_mahala, pred_clean_knn, ft_mahala.conf.mahala_mean, ft_knn.conf.knn_mean, alpha)
+    ft_knn.taylor_table(pred_arth, pred_clean_arth, "x-ood-mahala-knn-arth-" + str(alpha),"arthmetic_mean")
 
-    # pred_clean_geo = weighted_geometric_mean(
-    #     pred_clean_mahala, pred_clean_knn, alpha)
-    # # hist_plot(pred, pred_clean, "arthmetic_mean" )
-    # ft_knn.taylor_table(pred_arth, pred_clean_arth, "x-ood-mahala-knn-arth-" + str(alpha),"arthmetic_mean")
-    # ft_knn.taylor_table(pred_geo, pred_clean_geo, "x-ood-mahala-knn-geo-" + str(alpha),"geometric_mean")
+    # weighted_geometric_mean
+    pred_geo = weighted_geometric_mean(pred_mahala, pred_knn, alpha)
+    pred_clean_geo = weighted_geometric_mean(
+        pred_clean_mahala, pred_clean_knn, alpha)
+    ft_knn.taylor_table(pred_geo, pred_clean_geo, "x-ood-mahala-knn-geo-" + str(alpha),"geometric_mean")
    
-    # # # print("pred_mahala : ", pred_mahala)
-    # # # print("pred_knn : ", pred_knn)
+ 
+    # log probabilty
+    pred_log = log_probability(pred_mahala, pred_knn)
+    pred_clean_log = log_probability(pred_clean_mahala, pred_clean_knn)
+    ft_knn.taylor_table(pred_log, pred_clean_log, "x-ood-mahala-knn-log", "log_probability" )
+    
+    # square log probabilty  
+    pred_sq_log = square_log_probability(pred_mahala, pred_knn)
+    pred_clean_sq_log = square_log_probability(pred_clean_mahala, pred_clean_knn)
+    ft_knn.taylor_table(pred_sq_log, pred_clean_sq_log, "x-ood-mahala-knn-log-sq", "square_log_probability")
+    
+    # normalized_log_probability
+    pred_n_log = normalized_log_probability(pred_mahala, pred_knn,
+            ft_mahala.conf.mahala_mean, ft_knn.conf.knn_mean, ft_mahala.conf.mahala_std, ft_knn.conf.knn_std)
+    pred_n_clean_log = normalized_log_probability(pred_clean_mahala, pred_clean_knn, 
+            ft_mahala.conf.mahala_mean, ft_knn.conf.knn_mean, ft_mahala.conf.mahala_std, ft_knn.conf.knn_std)
+    ft_knn.taylor_table(pred_n_log, pred_n_clean_log, "x-ood-mahala-knn-n-log","normalized_log_probability")
+    
+    # max_distance
+    pred_max = max_distance(pred_mahala, pred_knn, 
+            ft_mahala.conf.mahala_max_mean, ft_knn.conf.knn_max_mean, ft_mahala.conf.mahala_max_std, ft_knn.conf.knn_max_std)
+    pred_clean_max = max_distance(pred_clean_mahala, pred_clean_knn, 
+            ft_mahala.conf.mahala_max_mean, ft_knn.conf.knn_max_mean, ft_mahala.conf.mahala_max_std, ft_knn.conf.knn_max_std)
+    ft_knn.taylor_table(pred_max, pred_clean_max, "x-ood-mahala-knn-max-","mahala_max_mean" )
 
-    
-    # # log probabilty
-    # pred_log = log_probability(pred_mahala, pred_knn)
-    # print("pred_log: ", pred_log)
-    # pred_clean_log = log_probability(pred_clean_mahala, pred_clean_knn)
-    # print("pred_clean_log: ", pred_clean_log)
-    # # hist_plot(pred_log, pred_clean_log, "log_probability" )
-    # ft_knn.taylor_table(pred_log, pred_clean_log, "x-ood-mahala-knn-log", "log_probability" )
-    
-    # # square log probabilty  
-    # pred_sq_log = square_log_probability(pred_mahala, pred_knn)
-    # # print("pred_sq_log: ", pred_sq_log)
-    # pred_clean_sq_log = square_log_probability(pred_clean_mahala, pred_clean_knn)
-    # # print("pred_clean_sq_log: ", pred_clean_sq_log)
-    # # hist_plot(pred_sq_log, pred_clean_sq_log, "square_log_probability" )
-    # ft_knn.taylor_table(pred_sq_log, pred_clean_sq_log, "x-ood-mahala-knn-log-sq", "square_log_probability")
-    
-    # # normalized_log_probability
-    # pred_n_log = normalized_log_probability(pred_mahala, pred_knn,
-    #         ft_mahala.conf.mahala_mean, ft_knn.conf.knn_mean, ft_mahala.conf.mahala_std, ft_knn.conf.knn_std)
-    # pred_n_clean_log = normalized_log_probability(pred_clean_mahala, pred_clean_knn, 
-    #         ft_mahala.conf.mahala_mean, ft_knn.conf.knn_mean, ft_mahala.conf.mahala_std, ft_knn.conf.knn_std)
-    # # hist_plot(pred_n_log, pred_n_clean_log, "normalized_log_probability" )
-    # ft_knn.taylor_table(pred_n_log, pred_n_clean_log, "x-ood-mahala-knn-n-log","normalized_log_probability")
-    
-    # # max_distance
-    # pred_max = max_distance(pred_mahala, pred_knn, 
-    #         ft_mahala.conf.mahala_max_mean, ft_knn.conf.knn_max_mean, ft_mahala.conf.mahala_max_std, ft_knn.conf.knn_max_std)
-    # pred_clean_max = max_distance(pred_clean_mahala, pred_clean_knn, 
-    #         ft_mahala.conf.mahala_max_mean, ft_knn.conf.knn_max_mean, ft_mahala.conf.mahala_max_std, ft_knn.conf.knn_max_std)
-    # # hist_plot(pred_max, pred_clean_max, "mahala_max_mean" )
-    # ft_knn.taylor_table(pred_max, pred_clean_max, "x-ood-mahala-knn-max-","mahala_max_mean" )
-
-    
-    
-    # pred_max_2 = max_distance2(pred_mahala, pred_knn, 
-    #         ft_mahala.conf.mahala_max_mean, ft_knn.conf.knn_max_mean, ft_mahala.conf.mahala_max_std, ft_knn.conf.knn_max_std)
-    # pred_clean_max_2 = max_distance2(pred_clean_mahala, pred_clean_knn, 
-    #         ft_mahala.conf.mahala_max_mean, ft_knn.conf.knn_max_mean, ft_mahala.conf.mahala_max_std, ft_knn.conf.knn_max_std)
-    # ft_knn.taylor_table(pred_max_2, pred_clean_max_2, "x-ood-mahala-knn-max-2")
-
-    # pred_clean = weighted_geometric_mean(pred_clean_probs)
 
     # ft_mahala.create_summary_combine(ft_mahala.conf.softmax, "baseline")
     # ft.create_summary(ft.conf.energy, "energy")
@@ -528,9 +509,9 @@ if __name__ == "__main__":
     
     # sys.stdout = open("console_output_knn.txt", "w")
     # test_ood("mnist", "lenet", 0.5)
-    test_ood("cifar10", "resnet", 0.5)
+    # test_ood("cifar10", "resnet", 0.5)
     # test_ood("cifar100", "resnet", 0.5)
-    # test_ood("imagenet", "resnet50", 0.5)
+    test_ood("imagenet", "resnet50", 0.5)
     # for i in [0.7]:
     #   test_ood("imagenet", "resnet34", i)
     #   test_ood("cifar10", "resnet", i)

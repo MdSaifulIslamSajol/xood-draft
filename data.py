@@ -25,7 +25,7 @@ sys.path.insert(0, '..')  # Enable import from parent folder.
 #from OpenOOD.openood.utils import config
 #from OpenOOD.openood_id_ood_and_model_mnist import id_dataloader_from_openood_repo_mnist, ood_dataloader_from_openood_repo_mnist
 from OpenOOD.openood_id_ood_and_model_cifar10 import id_dataloader_from_openood_repo_cifar10 , ood_dataloader_from_openood_repo_cifar10
-
+from OpenOOD.openood_id_ood_and_model_imagenet import id_dataloader_from_openood_repo_imagenet , ood_dataloader_from_openood_repo_imagenet
 img_shape = (32, 32, 3)
 imagenet_transform = torchvision.transforms.Compose([
     torchvision.transforms.Resize(256),
@@ -803,6 +803,10 @@ def load_imagenet_id_data_from_openood():
         0, '/home/saiful/confidence-magesh_MR/confidence-magesh/OpenOOD/')
 
     train_loader, val_loader, test_loader = id_dataloader_from_openood_repo_imagenet()
+    
+    print("returning Train, Val and Test Set for imagenet \n")
+    
+    return {"Train": train_loader, "Val": val_loader, "Test": test_loader}
     # with open('/data/saiful/imagenet_datasets2/train_loader_for_imagenet_4096_images.pickle', 'rb') as handle:
     #     train_loader = pickle.load(handle)
     # with open('val_loader_for_imagenet_320images.pickle', 'rb') as handle:
@@ -898,11 +902,45 @@ def load_imagenet_id_data_from_openood():
     # train = scale_and_save_in_df(train_features, train_labels, scale=False)
     # val = scale_and_save_in_df(val_features, val_labels, scale=False)
     # test = scale_and_save_in_df(test_features, test_labels, scale=False)
-    print("returning Train, Val and Test Set for imagenet\n")
-    return {"Train": test_features, "Val": val_loader, "Test": test_loader}
-
+    # print("returning Train, Val and Test Set for imagenet\n")
+    # return {"Train": test_features, "Val": val_loader, "Test": test_loader}
 
 def out_of_dict_from_openood_for_imagenet():
+    print("data.py => out_of_dict_from_openood_for_imagenet()")
+
+    old_path = Path.cwd()
+    os.chdir("/home/saiful/confidence-magesh_MR/confidence-magesh")
+    temp_path = Path.cwd()
+    sys.path.insert(
+        0, '/home/saiful/confidence-magesh_MR/confidence-magesh')
+
+    ood_dict_for_imagenet = ood_dataloader_from_openood_repo_imagenet()
+    
+    print("type(ood_dict_for_imagenet)  :,type(ood_dict_for_imagenet)")
+
+    print("ood_dict_for_imagenet.keys():", ood_dict_for_imagenet.keys()) #dict_keys(['val', 'nearood', 'farood'])
+    print("ood_dict_for_imagenet[nearood].keys():",ood_dict_for_imagenet["nearood"].keys()) # dict_keys(['cifar100', 'tin'])
+    print("ood_dict_for_imagenet[farood].keys():",ood_dict_for_imagenet["farood"].keys()) # dict_keys(['mnist', 'svhn', 'texture', 'place365'])
+
+    species_loader = ood_dict_for_imagenet['nearood']['species']
+    inaturalist_loader = ood_dict_for_imagenet['nearood']['inaturalist']
+    openimageo_loader = ood_dict_for_imagenet['nearood']['openimageo']
+    imageneto_loader = ood_dict_for_imagenet['nearood']['imageneto']
+    texture_loader = ood_dict_for_imagenet['farood']['texture']
+    mnist_loader = ood_dict_for_imagenet['farood']['mnist']
+    ood_datasets = {
+        "species": species_loader,
+        "openimageo": openimageo_loader,
+        "imageneto": imageneto_loader,
+        "mnist": mnist_loader,
+        "inaturalist": inaturalist_loader,
+        "texture": texture_loader
+    }
+    print("ood_datasets.keys():", ood_datasets.keys())
+    os.chdir(old_path)
+    return ood_datasets
+ 
+def out_of_dict_from_openood_for_imagenet_old():
     print("data.py => out_of_dict_from_openood_for_imagenet()")
 
     old_path = Path.cwd()
@@ -1103,7 +1141,6 @@ def out_of_dict_from_openood_for_cifar10():
         # "tin": tin_loader,
         # "places": places_loader,
         "texture": texture_loader,
-
     }
     print("ood_datasets.keys():", ood_datasets.keys())
     os.chdir(old_path)
