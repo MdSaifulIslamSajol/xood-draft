@@ -354,28 +354,11 @@ class Confidenciator:
         print("returning add_prediction_and_features() with shape:", df.shape)
         return df
 
-    def add_prediction_and_features_knn(self, df: pd.DataFrame):
+    def add_prediction_and_features_knn(self, dataloader):
         print("\nconfidenciator.py  ==> Confidenciator.add_prediction_and_features_knn()")
-        print("add prediction and features knn")
-        pred, features = self.model.predict_knn(
-            get_images_and_labels(df, labels=False, chw=True))
-        #pred, features = self.model.predict(get_images_and_labels(df, labels=False, chw=True))
-        print("Features shape: ", (features.shape))
+        pred, features = self.model.predict_knn(dataloader)
+        #pred, features = self.model.predict(get_images_and_labelsd(df, labels=False, chw=True))
         df = pd.DataFrame(features)
-        # self.penultimate_feature_vector = df
-        # print("Shape of Penultimate Layer: ", self.penultimate_feature_vector.shape)
-        # self.concatenated_vectors = pd.concat([self.extreme_value_vector, self.penultimate_feature_vector], axis = 1)
-        print("Shape of dataframe: ", df.shape)
-        # Testing for Max - Min Values for KNN
-        # if len(self.feat_cols) == 0:
-        #     self.feat_cols = ["Max_out", "Min_out"] + list(features.keys())
-        # df["pred"] = np.argmax(pred, axis=-1)
-        # df["is_correct"] = df["pred"] == df["label"].to_numpy()
-        # df["Max_out"] = np.max(pred, axis=-1)
-        # df["Min_out"] = -np.min(pred, axis=-1)
-        # df = pd.concat([df, pd.DataFrame(features, index=df.index)], axis=1)
-        print("MR - added dataset shape", df.shape)
-        # return self.concatenated_vectors
         return df
 
     def fit(self, cal: Dict[str, pd.DataFrame], c=None):
@@ -406,20 +389,9 @@ class Confidenciator:
 
     def fit_knn_faiss(self, df: pd.DataFrame, c=None):
         print("confidenciator.py  ==> Confidenciator.fit_knn_faiss()")
-        #feature = self.add_prediction_and_features(df)
-        print("After this it fails?")
-        # df = self.concatenated_vectors
-        # Added to only extract Min and Max
-        #df = df[self.feat_cols]
-        print("Shape of df: ", df.shape)
         ##
         # save pickle file here
-        with open('/home/saiful/confidence-magesh_MR/confidence-magesh/OpenOOD/pickle_files/df_imagenet_traindata_from_xood.pickle', 'wb') as handle:
-            pickle.dump(df, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        
-        ##
         self.index = faiss.IndexFlatL2(df.shape[1])
-        print("It is failing here?")
 
         #x = self.pt.transform(self.scaler.transform(df[self.feat_cols]))
         # x = self.pt_knn.fit_transform(self.scaler_knn.fit_transform(df))
@@ -460,8 +432,6 @@ class Confidenciator:
 
     def predict_knn_faiss(self, dataset: pd.DataFrame):
         print("confidenciator.py  ==> Confidenciator.predict_knn_faiss()")
-        # if not all(col in dataset.columns for col in self.feat_cols):
-        #   dataset = self.add_prediction_and_features(dataset)
         print("TESTING DATASET: ", dataset.shape)
         #dataset = dataset[self.feat_cols]
         # if not isInTest:
@@ -490,12 +460,6 @@ class Confidenciator:
         D, _ = self.index.search((np.ascontiguousarray(
             feature_normed.astype(np.float32))), self.K)
         kth_dist = -D[:, -1]
-        #_, pred = torch.max(torch.softmax(output, dim=1), dim=1)
-        #print("Predictionn shape: ", pred.shape)
-        print((torch.from_numpy(kth_dist)).shape)
-        print("Kth Type:", type(kth_dist))
-        # return pred, torch.from_numpy(kth_dist)
-        # return torch.from_numpy(kth_dist)
         return kth_dist
 
     def predict_mahala(self, dataset: pd.DataFrame):
