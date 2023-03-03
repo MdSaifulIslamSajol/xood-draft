@@ -1,7 +1,8 @@
 import os
 os.environ["CUDA_VISIBLE_DEVICES"]="2"
+import torch.multiprocessing
+torch.multiprocessing.set_sharing_strategy('file_system')
 from pathlib import Path
-
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
@@ -510,8 +511,8 @@ if __name__ == "__main__":
     # sys.stdout = open("console_output_knn.txt", "w")
     # test_ood("mnist", "lenet", 0.5)
     # test_ood("cifar10", "resnet", 0.5)
-    # test_ood("cifar100", "resnet", 0.5)
-    test_ood("imagenet", "resnet50", 0.5)
+    test_ood("cifar100", "resnet", 0.5)
+    # test_ood("imagenet", "resnet50", 0.5)
     # for i in [0.7]:
     #   test_ood("imagenet", "resnet34", i)
     #   test_ood("cifar10", "resnet", i)
