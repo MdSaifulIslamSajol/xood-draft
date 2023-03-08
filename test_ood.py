@@ -44,12 +44,6 @@ def taylor_scores(in_dist, out_dist):
     return scores
 
 
-def combine_prob(pred_values):
-    print("test_ood.py ==> combine_prob()")
-    alpha = 0.5
-    print("pred_values: ",pred_values)
-
-
 class FeatureTester: 
     def __init__(self, dataset: str, model: str, feature_model, name=""):
         print("\n\n-------------test_ood.py ==> FeatureTester-------------")
@@ -87,7 +81,7 @@ class FeatureTester:
                 print("running set  :",name)
                 self.data[name] = self.conf.add_prediction_and_features_dl(
                     self.data[name]) # name = Train, Test, Val
-            else:
+            elif:
                 print("ELSE PART IS GETTING EXECUTED")
                 print("running set  :",name)
                 #self.data[name] = self.conf.add_prediction_and_features_knn(
@@ -96,6 +90,15 @@ class FeatureTester:
                     self.data[name])
             #self.data[name] = self.conf.add_prediction_and_features(self.data[name], isOOD=False)
             print("Data Frame 2 shape: ", self.data[name].shape)
+            else:
+                mahala_df = self.conf.add_prediction_and_features_dl(
+                    self.data[name])
+                knn_df = self.conf.add_prediction_and_extreme_features_dl_to_knn(
+                    self.data[name])
+                self.data[name] = pd.concat(mahala_df, knn_df)
+
+
+
         print("flag 3 self.data.keys() :", self.data.keys())
         
         # self.compute_accuracy(self.data)
@@ -105,12 +108,21 @@ class FeatureTester:
             print("It is goign in mahala")
             self.ood = {name: self.conf.add_prediction_and_features_dl(
                 df) for name, df in out_of_dist(self.dataset).items()}
-        else:
+        elif:
             print("It is goign in knn")
             #self.ood = {name: self.conf.add_prediction_and_features_knn(
              #   df) for name, df in out_of_dist(self.dataset).items()}
             self.ood = {name: self.conf.add_prediction_and_extreme_features_dl_to_knn(
                 df) for name, df in out_of_dist(self.dataset).items()}
+        else:
+            for name, df in out_of_dist(self.dataset).items():
+                mahala_ood = self.conf.add_prediction_and_features_dl(df)
+                knn_ood = self.conf.add_prediction_and_extreme_features_dl_to_knn(df)
+                self.ood[name] = pd.concat(mahala_ood, knn_ood)
+            #self.ood = {name: self.conf.add_prediction_and_features_knn(
+             #   df) for name, df in out_of_dist(self.dataset).items()}
+            #self.ood = {name: self.conf.add_prediction_and_extreme_features_dl_to_knn(
+             #   df) for name, df in out_of_dist(self.dataset).items()}
             
         #self.ood = {name: self.conf.add_prediction_and_features(df) for name, df in out_of_dist(self.dataset).items()}
         #self.ood = {name: df for name, df in out_of_dist(self.dataset).items()}
@@ -439,23 +451,6 @@ def test_ood(dataset, model, alpha):
     ft_knn.taylor_table(pred_knn, pred_clean_knn, "knn-" + str(alpha), "knn")
     # hist_plot_mahala_knn(pred_mahala,pred_knn,"mahala_knn")
     
-    # if dataset == "imagenet":
-    #     filename = "train_"+ str(dataset) + "_" + str(model) + "_"
-    # else:
-    #     filename = str(dataset) + "_" + str(model) + "_"
-    # with open('/home/saiful/confidence-magesh_MR/confidence-magesh/OpenOOD/pickle_files/'+filename+'_pred_knn.pickle', 'wb') as handle1:
-    #     pickle.dump(pred_knn, handle1, protocol=pickle.HIGHEST_PROTOCOL)
-    # with open('/home/saiful/confidence-magesh_MR/confidence-magesh/OpenOOD/pickle_files/'+filename+'_pred_clean_knn.pickle', 'wb') as handle2:
-    #     pickle.dump(pred_clean_knn, handle2, protocol=pickle.HIGHEST_PROTOCOL)
-    # with open('/home/saiful/confidence-magesh_MR/confidence-magesh/OpenOOD/pickle_files/'+filename+'_pred_mahala.pickle', 'wb') as handle3:
-    #     pickle.dump(pred_mahala, handle3, protocol=pickle.HIGHEST_PROTOCOL)
-    # with open('/home/saiful/confidence-magesh_MR/confidence-magesh/OpenOOD/pickle_files/'+filename+'pred_clean_mahala.pickle', 'wb') as handle4:
-    #     pickle.dump(pred_clean_mahala, handle4, protocol=pickle.HIGHEST_PROTOCOL)
-    
-    # # # commenting for concatenated- untill f_ft_knn.taylor table
-    # # pred_probs.append(pred_knn) 
-    # # pred_clean_probs.append(pred_clean_knn)
-    
     # weighted_arthmetic_mean
     pred_arth = weighted_arthmetic_mean(pred_mahala, pred_knn, ft_mahala.conf.mahala_mean, ft_knn.conf.knn_mean, alpha)
     print("pred_arth Keys:", pred_arth.keys())
@@ -493,6 +488,13 @@ def test_ood(dataset, model, alpha):
             ft_mahala.conf.mahala_max_mean, ft_knn.conf.knn_max_mean, ft_mahala.conf.mahala_max_std, ft_knn.conf.knn_max_std)
     ft_knn.taylor_table(pred_max, pred_clean_max, "x-ood-mahala-knn-max-","mahala_max_mean" )
 
+
+    ft_knn = FeatureTester(dataset, model, "", "combine")
+    ft_knn.fit_knn(test=False)
+    pred_knn, pred_clean_knn = ft_knn.create_summary_combine(
+        ft_knn.conf.predict_knn_faiss, "open-ood-knn")
+    ft_knn.taylor_table(pred_knn, pred_clean_knn, "knn-" + str(alpha), "combine")
+    
 
     # ft_mahala.create_summary_combine(ft_mahala.conf.softmax, "baseline")
     # ft.create_summary(ft.conf.energy, "energy")
