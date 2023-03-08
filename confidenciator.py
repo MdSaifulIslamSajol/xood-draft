@@ -356,6 +356,23 @@ class Confidenciator:
         print("returning add_prediction_and_features() with shape:", df.shape)
         return df
 
+    def add_prediction_and_extreme_features_dl_to_knn(self, dataloader):
+        print("\nconfidenciator.py  ==> Confidenciator.add_prediction_and_features()")
+        
+        labels, pred, features = self.model.predict(dataloader)
+        
+        if len(self.feat_cols) == 0:
+            self.feat_cols = ["Max_out", "Min_out"] + list(features.keys())
+            
+        df = pd.DataFrame(features)
+        df["pred"] = np.argmax(pred, axis=-1)
+        df["is_correct"] = df["pred"] == labels
+        df["Max_out"] = np.max(pred, axis=-1)
+        df["Min_out"] = -np.min(pred, axis=-1)
+        # self.extreme_value_vector = df[self.feat_cols]
+        print("returning add_prediction_and_features() with shape:", df.shape)
+        return df
+
     def add_prediction_and_features_knn(self, dataloader):
         print("\nconfidenciator.py  ==> Confidenciator.add_prediction_and_features_knn()")
         pred, features = self.model.predict_knn(dataloader)

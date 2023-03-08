@@ -90,7 +90,9 @@ class FeatureTester:
             else:
                 print("ELSE PART IS GETTING EXECUTED")
                 print("running set  :",name)
-                self.data[name] = self.conf.add_prediction_and_features_knn(
+                #self.data[name] = self.conf.add_prediction_and_features_knn(
+                 #   self.data[name])
+                self.data[name] = self.conf.add_prediction_and_extreme_features_dl_to_knn(
                     self.data[name])
             #self.data[name] = self.conf.add_prediction_and_features(self.data[name], isOOD=False)
             print("Data Frame 2 shape: ", self.data[name].shape)
@@ -105,8 +107,11 @@ class FeatureTester:
                 df) for name, df in out_of_dist(self.dataset).items()}
         else:
             print("It is goign in knn")
-            self.ood = {name: self.conf.add_prediction_and_features_knn(
+            #self.ood = {name: self.conf.add_prediction_and_features_knn(
+             #   df) for name, df in out_of_dist(self.dataset).items()}
+            self.ood = {name: self.conf.add_prediction_and_extreme_features_dl_to_knn(
                 df) for name, df in out_of_dist(self.dataset).items()}
+            
         #self.ood = {name: self.conf.add_prediction_and_features(df) for name, df in out_of_dist(self.dataset).items()}
         #self.ood = {name: df for name, df in out_of_dist(self.dataset).items()}
         print("Length of ood: ", self.ood.keys())
