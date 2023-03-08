@@ -348,8 +348,8 @@ class Confidenciator:
             self.feat_cols = ["Max_out", "Min_out"] + list(features.keys())
             
         df = pd.DataFrame(features)
-        df["pred"] = np.argmax(pred, axis=-1)
-        df["is_correct"] = df["pred"] == labels
+        # df["pred"] = np.argmax(pred, axis=-1)
+        # df["is_correct"] = df["pred"] == labels
         df["Max_out"] = np.max(pred, axis=-1)
         df["Min_out"] = -np.min(pred, axis=-1)
         # self.extreme_value_vector = df[self.feat_cols]
@@ -357,7 +357,7 @@ class Confidenciator:
         return df
 
     def add_prediction_and_extreme_features_dl_to_knn(self, dataloader):
-        print("\nconfidenciator.py  ==> Confidenciator.add_prediction_and_features()")
+        print("\nconfidenciator.py  ==> Confidenciator.add_prediction_and_extreme_features_dl_to_knn()")
         
         labels, pred, features = self.model.predict(dataloader)
         
@@ -484,10 +484,11 @@ class Confidenciator:
     def predict_mahala(self, dataset: pd.DataFrame):
         print("confidenciator.py  ==> Confidenciator.predict_mahala()")
         print("dataset.shape initial", dataset.shape)
-        if not all(col in dataset.columns for col in self.feat_cols):
-            dataset = self.add_prediction_and_features(dataset)
+        # if not all(col in dataset.columns for col in self.feat_cols):
+        #     dataset = self.add_prediction_and_features(dataset)
             
-        x = self.pt.transform(self.scaler.transform(dataset[self.feat_cols]))
+        # x = self.pt.transform(self.scaler.transform(dataset[self.feat_cols]))
+        x = self.pt.transform(self.scaler.transform(dataset))
         
         if self.reg < np.inf:
             return -np.apply_along_axis(lambda row: mahalanobis(row, self.mean, self.inv_cov), 1, x)
