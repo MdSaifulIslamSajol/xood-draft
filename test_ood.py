@@ -507,7 +507,7 @@ def test_ood(dataset, model, alpha):
     
     ft_mahala = FeatureTester(dataset, model, "", "combine")
     pred_mahala, pred_clean_mahala = ft_mahala.create_summary_combine(
-        ft_mahala.conf.predict_mahala, "x-ood-mahala")
+        ft_mahala.conf.predict_comb_mahala, "x-ood-mahala")
     ft_mahala.taylor_table(pred_mahala, pred_clean_mahala,
                             "knn-mahala-combine-mahalanobis" + str(alpha), "mahala")
 
