@@ -278,7 +278,9 @@ class Confidenciator:
         self.feat_cols = []
         #print("train set shape Before add_prediction_and_features : ", train_set.shape)
         train_set = self.add_prediction_and_features_dl(train_set)
+        train_set_knn = self.add_prediction_and_features_knn(train_set)
         print("train set shape After add_prediction_and_features: ", train_set.shape)
+        combine_train_set_mahala_knn = pd.concat([train_set, train_set_knn], ignore_index=True, axis=1)
         self.index = None
         self.K = 50
 
@@ -287,6 +289,9 @@ class Confidenciator:
         self.lr = None
         self.coeff = None
         self.concatenated_vectors = None
+        self.pt_combine = PowerTransformer()
+        self.scaler_combine = StandardScaler()
+        x_combine = self.pt_combine.fit_transform(self.scaler.fit_transform(combine_train_set_mahala_knn))
         self.pt = PowerTransformer()
         self.pt_knn = PowerTransformer()
         self.scaler = StandardScaler()
@@ -297,12 +302,16 @@ class Confidenciator:
         
         if reg < np.inf:
             cov = np.cov(x, rowvar=False)
+            cov_comb = np.cov(x_combine, rowvar=False)
             self.inv_cov = np.linalg.inv(
                 cov + reg * np.identity(len(self.feat_cols)))
+            self.combine_inv_cov = np.linalg.inv(
+                cov_comb + reg * np.identity(combine_train_set_mahala_knn.shape[1]))
         else:
             self.inv_cov = np.identity(len(self.feat_cols))
             
         self.mean = np.zeros(len(self.feat_cols))
+        self.comb_mean = np.zeros(combine_train_set_mahala_knn.shape[1])
         self.reg = reg
         
         # calculating mahala for trainset
@@ -492,6 +501,19 @@ class Confidenciator:
         
         if self.reg < np.inf:
             return -np.apply_along_axis(lambda row: mahalanobis(row, self.mean, self.inv_cov), 1, x)
+        return -np.apply_along_axis(lambda row: np.linalg.norm(row - self.mean, ord=2), 1, x)
+
+    def predict_comb_mahala(self, dataset: pd.DataFrame):
+        print("confidenciator.py  ==> Confidenciator.predict_mahala()")
+        print("dataset.shape initial", dataset.shape)
+        # if not all(col in dataset.columns for col in self.feat_cols):
+        #     dataset = self.add_prediction_and_features(dataset)
+            
+        # x = self.pt.transform(self.scaler.transform(dataset[self.feat_cols]))
+        x = self.pt.transform(self.scaler.transform(dataset))
+        
+        if self.reg < np.inf:
+            return -np.apply_along_axis(lambda row: mahalanobis(row, self.comb_mean, self.combine_inv_cov), 1, x)
         return -np.apply_along_axis(lambda row: np.linalg.norm(row - self.mean, ord=2), 1, x)
 
     def predict_proba(self, dataset: pd.DataFrame):
