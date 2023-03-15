@@ -76,21 +76,26 @@ class FeatureTester:
 
         print("\n\n   ##  Adding Feature Columns   ##  ")
         print("feature_model :", feature_model)
+        
+        # add_prediction_and_features
         for name, df in self.data.items():  
+            print("flag 3.6 ", type(self.data[name]))
             if feature_model == "mahala":
                 print("It is goign in mahala")
                 print("running set  :",name)
+                # self.data[name] = self.conf.add_prediction_and_penultimate_features_dl_to_mahala(
+                #     self.data[name])
                 self.data[name] = self.conf.add_prediction_and_features_dl(
-                    self.data[name]) # name = Train, Test, Val
+                    self.data[name]) # name = Train, Test, Val 
+
                 
             elif feature_model == "knn":
                 print("ELSE PART IS GETTING EXECUTED")
                 print("running set  :",name)
-                #self.data[name] = self.conf.add_prediction_and_features_knn(
-                 #   self.data[name])
-                self.data[name] = self.conf.add_prediction_and_extreme_features_dl_to_knn(
+                self.data[name] = self.conf.add_prediction_and_features_knn(
                     self.data[name])
-            #self.data[name] = self.conf.add_prediction_and_features(self.data[name], isOOD=False)
+                # self.data[name] = self.conf.add_prediction_and_extreme_features_dl_to_knn(
+                #     self.data[name])
                 print("knn extreme feature shape: ", self.data[name].shape)
                 
             else:
@@ -105,10 +110,8 @@ class FeatureTester:
                 print("knn_df.shape :",knn_df.shape)
                 self.data[name] = pd.concat([mahala_df, knn_df], ignore_index=True, axis=1)
 
-                print("self.data[name].shape :",self.data[name].shape)
-
-
-
+                print("flag 3.7 self.data[name].shape :",self.data[name].shape)
+                
         print("flag 3 self.data.keys() :", self.data.keys())
         
         # self.compute_accuracy(self.data)
@@ -116,14 +119,18 @@ class FeatureTester:
         print("\n\n  ##  Creating Out-Of-Distribution Sets  ##  ", flush=True)
         if feature_model == "mahala":
             print("It is goign in mahala")
+            # self.ood = {name: self.conf.add_prediction_and_penultimate_features_dl_to_mahala(
+            #     df) for name, df in out_of_dist(self.dataset).items()}
             self.ood = {name: self.conf.add_prediction_and_features_dl(
                 df) for name, df in out_of_dist(self.dataset).items()}
+            
         elif feature_model == "knn":
             print("It is goign in knn")
-            #self.ood = {name: self.conf.add_prediction_and_features_knn(
-             #   df) for name, df in out_of_dist(self.dataset).items()}
-            self.ood = {name: self.conf.add_prediction_and_extreme_features_dl_to_knn(
+            self.ood = {name: self.conf.add_prediction_and_features_knn(
                 df) for name, df in out_of_dist(self.dataset).items()}
+            # self.ood = {name: self.conf.add_prediction_and_extreme_features_dl_to_knn(
+            #     df) for name, df in out_of_dist(self.dataset).items()}
+            
         else:
             for name, df in out_of_dist(self.dataset).items():
                 mahala_ood = self.conf.add_prediction_and_features_dl(df)
@@ -444,22 +451,22 @@ def test_ood(dataset, model, alpha):
     pred_clean_probs = []
     #ft.create_summary(ft.conf.predict_mahala, "x-ood-mahala")
 
-    # # ft_mahala
-    # ft_mahala = FeatureTester(dataset, model, "mahala", "")
-    # pred_mahala, pred_clean_mahala = ft_mahala.create_summary_combine(
-    #     ft_mahala.conf.predict_mahala, "x-ood-mahala")
-    # ft_mahala.taylor_table(pred_mahala, pred_clean_mahala,
-    #                         "x-ood-mahala-" + str(alpha), "mahala")
+    # ft_mahala -> this will be in mahala
+    ft_mahala = FeatureTester(dataset, model, "mahala", "mahala")
+    pred_mahala, pred_clean_mahala = ft_mahala.create_summary_combine(
+        ft_mahala.conf.predict_mahala, "x-ood-mahala")
+    ft_mahala.taylor_table(pred_mahala, pred_clean_mahala,
+                            "x-ood-mahala-extreme-" + str(alpha), "mahala")
 
     #
 
-    # # ft_knn
-    # ft_knn = FeatureTester(dataset, model, "knn", "knn")
-    # ft_knn.fit_knn(test=False)
-    # pred_knn, pred_clean_knn = ft_knn.create_summary_combine(
-    #     ft_knn.conf.predict_knn_faiss, "open-ood-knn")
-    # ft_knn.taylor_table(pred_knn, pred_clean_knn, "knn-extreme-features-" + str(alpha), "knn")
-    # # hist_plot_mahala_knn(pred_mahala,pred_knn,"mahala_knn")
+    # ft_knn - > this will be in KNN
+    ft_knn = FeatureTester(dataset, model, "knn", "knn")
+    ft_knn.fit_knn(test=False)
+    pred_knn, pred_clean_knn = ft_knn.create_summary_combine(
+        ft_knn.conf.predict_knn_faiss, "open-ood-knn")
+    ft_knn.taylor_table(pred_knn, pred_clean_knn, "knn-penultimate-features-" + str(alpha), "knn")
+    # hist_plot_mahala_knn(pred_mahala,pred_knn,"mahala_knn")
     
     # # weighted_arthmetic_mean
     # pred_arth = weighted_arthmetic_mean(pred_mahala, pred_knn, ft_mahala.conf.mahala_mean, ft_knn.conf.knn_mean, alpha)
@@ -474,22 +481,22 @@ def test_ood(dataset, model, alpha):
     # ft_knn.taylor_table(pred_geo, pred_clean_geo, "x-ood-mahala-knn-geo-" + str(alpha),"geometric_mean")
    
  
-    # # log probabilty
-    # pred_log = log_probability(pred_mahala, pred_knn)
-    # pred_clean_log = log_probability(pred_clean_mahala, pred_clean_knn)
-    # ft_knn.taylor_table(pred_log, pred_clean_log, "x-ood-mahala-knn-log", "log_probability" )
+    # log probabilty
+    pred_log = log_probability(pred_mahala, pred_knn)
+    pred_clean_log = log_probability(pred_clean_mahala, pred_clean_knn)
+    ft_knn.taylor_table(pred_log, pred_clean_log, "x-ood-mahala-knn-log", "log_probability" )
     
-    # # square log probabilty  
-    # pred_sq_log = square_log_probability(pred_mahala, pred_knn)
-    # pred_clean_sq_log = square_log_probability(pred_clean_mahala, pred_clean_knn)
-    # ft_knn.taylor_table(pred_sq_log, pred_clean_sq_log, "x-ood-mahala-knn-log-sq", "square_log_probability")
+    # square log probabilty  
+    pred_sq_log = square_log_probability(pred_mahala, pred_knn)
+    pred_clean_sq_log = square_log_probability(pred_clean_mahala, pred_clean_knn)
+    ft_knn.taylor_table(pred_sq_log, pred_clean_sq_log, "x-ood-mahala-knn-log-sq", "square_log_probability")
     
-    # # normalized_log_probability
-    # pred_n_log = normalized_log_probability(pred_mahala, pred_knn,
-    #         ft_mahala.conf.mahala_mean, ft_knn.conf.knn_mean, ft_mahala.conf.mahala_std, ft_knn.conf.knn_std)
-    # pred_n_clean_log = normalized_log_probability(pred_clean_mahala, pred_clean_knn, 
-    #         ft_mahala.conf.mahala_mean, ft_knn.conf.knn_mean, ft_mahala.conf.mahala_std, ft_knn.conf.knn_std)
-    # ft_knn.taylor_table(pred_n_log, pred_n_clean_log, "x-ood-mahala-knn-n-log","normalized_log_probability")
+    # normalized_log_probability
+    pred_n_log = normalized_log_probability(pred_mahala, pred_knn,
+            ft_mahala.conf.mahala_mean, ft_knn.conf.knn_mean, ft_mahala.conf.mahala_std, ft_knn.conf.knn_std)
+    pred_n_clean_log = normalized_log_probability(pred_clean_mahala, pred_clean_knn, 
+            ft_mahala.conf.mahala_mean, ft_knn.conf.knn_mean, ft_mahala.conf.mahala_std, ft_knn.conf.knn_std)
+    ft_knn.taylor_table(pred_n_log, pred_n_clean_log, "x-ood-mahala-knn-n-log","normalized_log_probability")
     
     # # max_distance
     # pred_max = max_distance(pred_mahala, pred_knn, 
@@ -499,17 +506,17 @@ def test_ood(dataset, model, alpha):
     # ft_knn.taylor_table(pred_max, pred_clean_max, "x-ood-mahala-knn-max-","mahala_max_mean" )
 
 
-    # ft_knn = FeatureTester(dataset, model, "", "combine")
-    # ft_knn.fit_knn(test=False)
-    # pred_knn, pred_clean_knn = ft_knn.create_summary_combine(
-    #     ft_knn.conf.predict_knn_faiss, "open-ood-knn")
-    # ft_knn.taylor_table(pred_knn, pred_clean_knn, "knn-mahala-combine-" + str(alpha), "combine")
+    ft_knn_comb = FeatureTester(dataset, model, "", "combine")
+    ft_knn_comb.fit_knn(test=False)
+    pred_knn, pred_clean_knn = ft_knn_comb.create_summary_combine(
+        ft_knn_comb.conf.predict_knn_faiss, "open-ood-knn")
+    ft_knn_comb.taylor_table(pred_knn, pred_clean_knn, "knn-mahala-feat-combine-algo-knn" + str(alpha), "combine")
     
-    ft_mahala = FeatureTester(dataset, model, "", "combine")
-    pred_mahala, pred_clean_mahala = ft_mahala.create_summary_combine(
-        ft_mahala.conf.predict_comb_mahala, "x-ood-mahala")
-    ft_mahala.taylor_table(pred_mahala, pred_clean_mahala,
-                            "knn-mahala-combine-mahalanobis" + str(alpha), "mahala")
+    ft_mahala_comb = FeatureTester(dataset, model, "", "combine")
+    pred_mahala, pred_clean_mahala = ft_mahala_comb.create_summary_combine(
+        ft_mahala_comb.conf.predict_comb_mahala, "x-ood-mahala")
+    ft_mahala_comb.taylor_table(pred_mahala, pred_clean_mahala,
+                            "knn-mahala-feat-combine-algo-mahalanobis" + str(alpha), "mahala")
 
     # ft_mahala.create_summary_combine(ft_mahala.conf.softmax, "baseline")
     # ft.create_summary(ft.conf.energy, "energy")
@@ -532,8 +539,8 @@ if __name__ == "__main__":
     
     # sys.stdout = open("console_output_knn_cifar10.txt", "w")
     test_ood("mnist", "lenet", 0.5)
-    # test_ood("cifar10", "resnet", 0.5)
-    # test_ood("cifar100", "resnet", 0.5)
+    test_ood("cifar10", "resnet", 0.5)
+    test_ood("cifar100", "resnet", 0.5)
     # test_ood("imagenet", "resnet50", 0.5)
     # for i in [0.7]:
     #   test_ood("imagenet", "resnet34", i)

@@ -560,12 +560,12 @@ def out_of_dist(dataset_name, debug=False):
     if dataset_name == "mnist":
         mnist_ood = out_of_dict_from_openood_for_mnist()
         datasets.update({
-            "Cifar10": mnist_ood["cifar10"] #,
-            # "NonMNIST": mnist_ood["notmnist"],
-            # "FashionMNIST": mnist_ood["fashionmnist"],
-            # "Tin": mnist_ood["tin"],
-            # "Places": mnist_ood["places"],
-            # "Texture": mnist_ood["texture"],
+            "Cifar10": mnist_ood["cifar10"] ,
+            "NonMNIST": mnist_ood["notmnist"],
+            "FashionMNIST": mnist_ood["fashionmnist"],
+            "Tin": mnist_ood["tin"],
+            "Places": mnist_ood["places"],
+            "Texture": mnist_ood["texture"],
         })
     elif dataset_name == "cifar10":
         cifar10_ood = out_of_dict_from_openood_for_cifar10()
@@ -664,22 +664,22 @@ def out_of_dict_from_openood_for_mnist():
 
 
     # access each dataloader
-    # fashionmnist_loader = ood_dict_for_mnist['nearood']['fashionmnist']
-    # notmnist_loader = ood_dict_for_mnist['nearood']['notmnist']
+    fashionmnist_loader = ood_dict_for_mnist['nearood']['fashionmnist']
+    notmnist_loader = ood_dict_for_mnist['nearood']['notmnist']
 
     cifar10_loader = ood_dict_for_mnist['farood']['cifar10']
-    # tin_loader = ood_dict_for_mnist['farood']['tin']
-    # places_loader = ood_dict_for_mnist['farood']['places365']
-    # texture_loader = ood_dict_for_mnist['farood']['texture']
+    tin_loader = ood_dict_for_mnist['farood']['tin']
+    places_loader = ood_dict_for_mnist['farood']['places365']
+    texture_loader = ood_dict_for_mnist['farood']['texture']
 
     
     ood_datasets = {
-        # "notmnist" : notmnist_loader,
-        # "fashionmnist" : fashionmnist_loader,
+        "notmnist" : notmnist_loader,
+        "fashionmnist" : fashionmnist_loader,
         "cifar10": cifar10_loader,
-        # "tin" : tin_loader ,
-        # "places" : places_loader,
-        # "texture" : texture_loader,
+        "tin" : tin_loader ,
+        "places" : places_loader,
+        "texture" : texture_loader,
 
     }
 
