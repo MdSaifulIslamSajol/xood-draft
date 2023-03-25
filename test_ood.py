@@ -1,5 +1,11 @@
 import os
+<<<<<<< Updated upstream
 os.environ["CUDA_VISIBLE_DEVICES"]="7"
+=======
+os.environ["CUDA_VISIBLE_DEVICES"]="4"
+import torch.multiprocessing
+torch.multiprocessing.set_sharing_strategy('file_system')
+>>>>>>> Stashed changes
 from pathlib import Path
 
 import numpy as np
@@ -22,6 +28,12 @@ import pickle
 import time
 
 
+def convert_seconds(seconds):
+    hours = seconds // 3600
+    seconds %= 3600
+    minutes = seconds // 60
+    seconds %= 60
+    return f"{hours} hours, {minutes} minutes, {seconds} seconds"
 
 def taylor_scores(in_dist, out_dist):
     print("test_ood.py ==> taylor_scores()")
@@ -96,7 +108,7 @@ class FeatureTester:
         print("flag 3 self.data.keys() :", self.data.keys())
         
         # self.compute_accuracy(self.data)
-        
+                
         print("\n\n  ##  Creating Out-Of-Distribution Sets  ##  ", flush=True)
         if feature_model == "mahala":
             print("It is goign in mahala")
@@ -162,7 +174,7 @@ class FeatureTester:
         table.to_csv(self.path / f"summary_{name}.csv")
         df_to_pdf(table, decimals=4, path=self.path /
                   f"summary_{name}.pdf", vmin=0, percent=True)
-        self.hist_plot(pred, pred_clean, method_name)
+        # self.hist_plot(pred, pred_clean, method_name)
         if corr:
             pred_corr = pred_clean[self.data["Test"]["is_correct"]]
             table = pd.DataFrame.from_dict(
@@ -416,14 +428,36 @@ def test_ood(dataset, model, alpha):
     pred_clean_probs = []
     #ft.create_summary(ft.conf.predict_mahala, "x-ood-mahala")
 
+<<<<<<< Updated upstream
     # ft_mahala
     ft_mahala = FeatureTester(dataset, model, "mahala", "")
+=======
+    # ft_mahala -> this will be in mahala
+    ft_mahala = FeatureTester(dataset, model, "mahala", "document")
+>>>>>>> Stashed changes
     pred_mahala, pred_clean_mahala = ft_mahala.create_summary_combine(
         ft_mahala.conf.predict_mahala, "x-ood-mahala")
     ft_mahala.taylor_table(pred_mahala, pred_clean_mahala,
                             "x-ood-mahala-" + str(alpha), "mahala")
 
+<<<<<<< Updated upstream
     #
+=======
+
+    # ft_knn - > this will be in KNN
+    ft_knn = FeatureTester(dataset, model, "knn", "document")
+    ft_knn.fit_knn(test=False)
+    pred_knn, pred_clean_knn = ft_knn.create_summary_combine(
+        ft_knn.conf.predict_knn_faiss, "open-ood-knn")
+    # if (np.isnan(pred_knn)== True):
+        
+    #     ft_knn.taylor_table(pred_knn, pred_clean_knn, "knn-penultimate-features-" + str(alpha), "knn")
+    # else:
+    #     print("flag It is failing ")
+    ft_knn.taylor_table(pred_knn, pred_clean_knn, "knn-penultimate-features-" + str(alpha), "knn")
+
+    # hist_plot_mahala_knn(pred_mahala,pred_knn,"mahala_knn")
+>>>>>>> Stashed changes
     
     # ft_knn
     # ft_knn = FeatureTester(dataset, model, "", "knn")
@@ -461,6 +495,7 @@ def test_ood(dataset, model, alpha):
     # ft_knn.taylor_table(pred_arth, pred_clean_arth, "x-ood-mahala-knn-arth-" + str(alpha),"arthmetic_mean")
     # ft_knn.taylor_table(pred_geo, pred_clean_geo, "x-ood-mahala-knn-geo-" + str(alpha),"geometric_mean")
    
+<<<<<<< Updated upstream
     # # # print("pred_mahala : ", pred_mahala)
     # # # print("pred_knn : ", pred_knn)
 
@@ -488,6 +523,26 @@ def test_ood(dataset, model, alpha):
     #         ft_mahala.conf.mahala_mean, ft_knn.conf.knn_mean, ft_mahala.conf.mahala_std, ft_knn.conf.knn_std)
     # # hist_plot(pred_n_log, pred_n_clean_log, "normalized_log_probability" )
     # ft_knn.taylor_table(pred_n_log, pred_n_clean_log, "x-ood-mahala-knn-n-log","normalized_log_probability")
+=======
+ 
+    # # log probabilty
+    # pred_log = log_probability(pred_mahala, pred_knn)
+    # pred_clean_log = log_probability(pred_clean_mahala, pred_clean_knn)
+    # ft_knn.taylor_table(pred_log, pred_clean_log, "x-ood-mahala-knn-log", "log_probability" )
+    
+    # # square log probabilty  
+    # pred_sq_log = square_log_probability(pred_mahala, pred_knn)
+    # pred_clean_sq_log = square_log_probability(pred_clean_mahala, pred_clean_knn)
+    # ft_knn.taylor_table(pred_sq_log, pred_clean_sq_log, "x-ood-mahala-knn-log-sq", "square_log_probability")
+    
+    # # normalized_log_probability
+    # pred_n_log = normalized_log_probability(pred_mahala, pred_knn,
+    #         ft_mahala.conf.mahala_mean, ft_knn.conf.knn_mean, ft_mahala.conf.mahala_std, ft_knn.conf.knn_std)
+    # pred_n_clean_log = normalized_log_probability(pred_clean_mahala, pred_clean_knn, 
+    #         ft_mahala.conf.mahala_mean, ft_knn.conf.knn_mean, ft_mahala.conf.mahala_std, ft_knn.conf.knn_std)
+    # ft_knn.taylor_table(pred_n_log, pred_n_clean_log, "x-ood-mahala-knn-n-log","normalized_log_probability")
+    
+>>>>>>> Stashed changes
     
     # # max_distance
     # pred_max = max_distance(pred_mahala, pred_knn, 
@@ -497,6 +552,7 @@ def test_ood(dataset, model, alpha):
     # # hist_plot(pred_max, pred_clean_max, "mahala_max_mean" )
     # ft_knn.taylor_table(pred_max, pred_clean_max, "x-ood-mahala-knn-max-","mahala_max_mean" )
 
+<<<<<<< Updated upstream
     
     
     # pred_max_2 = max_distance2(pred_mahala, pred_knn, 
@@ -506,6 +562,20 @@ def test_ood(dataset, model, alpha):
     # ft_knn.taylor_table(pred_max_2, pred_clean_max_2, "x-ood-mahala-knn-max-2")
 
     # pred_clean = weighted_geometric_mean(pred_clean_probs)
+=======
+
+    # ft_knn_comb = FeatureTester(dataset, model, "", "combine")
+    # ft_knn_comb.fit_knn(test=False)
+    # pred_knn, pred_clean_knn = ft_knn_comb.create_summary_combine(
+    #     ft_knn_comb.conf.predict_knn_faiss, "open-ood-knn")
+    # ft_knn_comb.taylor_table(pred_knn, pred_clean_knn, "knn-mahala-feat-combine-algo-knn" + str(alpha), "combine")
+    
+    # ft_mahala_comb = FeatureTester(dataset, model, "", "combine")
+    # pred_mahala, pred_clean_mahala = ft_mahala_comb.create_summary_combine(
+    #     ft_mahala_comb.conf.predict_comb_mahala, "x-ood-mahala")
+    # ft_mahala_comb.taylor_table(pred_mahala, pred_clean_mahala,
+    #                         "knn-mahala-feat-combine-algo-mahalanobis" + str(alpha), "mahala")
+>>>>>>> Stashed changes
 
     # ft_mahala.create_summary_combine(ft_mahala.conf.softmax, "baseline")
     # ft.create_summary(ft.conf.energy, "energy")
@@ -526,9 +596,17 @@ if __name__ == "__main__":
     
     start_time = time.time()
     
+<<<<<<< Updated upstream
     # sys.stdout = open("console_output_knn.txt", "w")
     # test_ood("mnist", "lenet", 0.5)
     test_ood("cifar10", "resnet", 0.5)
+=======
+    # sys.stdout = open("console_output_knn_cifar10.txt", "w")
+    # test_ood("mnist", "lenet", 0.5)
+    # test_ood("cifar10", "resnet", 0.5)
+    test_ood("document", "resnet50_docu", 0.5)
+
+>>>>>>> Stashed changes
     # test_ood("cifar100", "resnet", 0.5)
     # test_ood("imagenet", "resnet50", 0.5)
     # for i in [0.7]:
@@ -544,6 +622,13 @@ if __name__ == "__main__":
     #      test_ood(d, m)
     # for m in "resnet18", "resnet34", "resnet50", "resnet101":
     #     test_ood("imagenet", m)
+<<<<<<< Updated upstream
     print("\nExecution Complete")
     print("--- %s seconds ---" % (time.time() - start_time))
 
+=======
+    
+    print("\nExecution Complete") 
+    time_taken = convert_seconds((time.time() - start_time))
+    print("--- time taken :  %s ---" % time_taken)
+>>>>>>> Stashed changes
