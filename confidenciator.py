@@ -155,23 +155,39 @@ class FeatureExtractor(nn.Module):
             for i, data in enumerate(images):
                 # print(f"Computing predictions: {i + 1}/{len(images)}             ", end="\r")
                 # print(" 
+<<<<<<< Updated upstream
                 print("data shape: ", data.keys())
                 label = data["label"]
                 data = data["data"]
+=======
+                # print("data shape: ", data.keys())
+>>>>>>> Stashed changes
                 
-                                                                         # ", end="\r")
-                #data = data[0].to(self.device)
-                data = data.to(self.device)
+                # commenting for document
+                # data = data["data"]
+                # label = data["label"]
+
+                # print("before size of data[0].shape: ", data[0].shape)
+                
+                if isinstance(data, list):
+                    data = data[0].to(self.device)
+
+                else:
+                    data = data.to(self.device)
+
+
+                # data = data[0].to(self.device)
+                # data = data.to(self.device)
                 #data = torch.moveaxis(data, 1, 3)
                 print("size of data: ", data.shape)
                 #data = torch.reshape(data, (-1,))
-                #print("size of data: ", data.shape)
+                # print("size of data: ", data.shape)
                 
                 #sys.exit()
                 out, feat = self(data)
                 #print("passing this line")
                 output.append(out)
-                labels.append(label)
+                # labels.append(label)
                 
                 # print("Self Features in forward funtion is : ",
                 #       self._features.keys())
@@ -182,7 +198,8 @@ class FeatureExtractor(nn.Module):
             for k in features.keys():
                 features[k] = torch.cat(features[k]).cpu().detach().numpy()
         output_np = torch.cat(output).cpu().detach().numpy()
-        labels_np = torch.cat(labels).cpu().detach().numpy()
+        # labels_np = torch.cat(labels).cpu().detach().numpy()
+        labels_np = []
         return labels_np, output_np, features
 
     def predict_knn(self, images):
@@ -204,7 +221,22 @@ class FeatureExtractor(nn.Module):
                 batch_size = data[0].shape
                 print("batch_size[0] :", batch_size[0])
                 
+<<<<<<< Updated upstream
                 data = data[0].to(self.device)
+=======
+                # data = data[0].to(self.device)
+                
+                if isinstance(data, list):
+                    data = data[0].to(self.device)
+
+                else:
+                    data = data.to(self.device)
+                
+                # commenting out for document data
+                # data = data["data"]
+                # data = data.to(self.device)
+                
+>>>>>>> Stashed changes
                 out, features = self.model.forward_knn2(data, return_feature_list = True)
                 # print("feature.shape :",feature.shape)
                 print("length of features :", len(features))
