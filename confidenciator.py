@@ -1,3 +1,4 @@
+
 import numpy as np
 import pandas as pd
 from torch.linalg import vector_norm
@@ -133,8 +134,8 @@ class FeatureExtractor(nn.Module):
         # print("forward is called")
         output = self.model(x)
         return output, self._features
-
-    def predict(self, images):
+    
+    def predict_openood(self, images):   # predict_openood version
         """ 
         receives an array of (5000,3,32,32) size (for cifar10)
         returns output_np and features
@@ -143,6 +144,8 @@ class FeatureExtractor(nn.Module):
         this function adds activation layer features Max_relu_n, Min_relu_n
         """
         print("confidenciator.py  ==> FeatureExtractor.predict()")
+        print("predict() openood version called")
+
         #print("incoming shape to FeatureExtractor.predict()  : ", images.shape)
         # images = torch.tensor(images, dtype=torch.float)
         # images = self.transform(images)
@@ -155,13 +158,112 @@ class FeatureExtractor(nn.Module):
             for i, data in enumerate(images):
                 # print(f"Computing predictions: {i + 1}/{len(images)}             ", end="\r")
                 # print(" 
-<<<<<<< Updated upstream
-                print("data shape: ", data.keys())
+                # print("data shape: ", data.keys())
                 label = data["label"]
                 data = data["data"]
-=======
+                # print("data 2.3 shape: ", data.shape)
+                
+                                                                         # ", end="\r")
+                #data = data[0].to(self.device)
+                data = data.to(self.device)
+                # print("data 2.4 shape: ", data.shape)
+                #data = torch.moveaxis(data, 1, 3)
+                # print("size of data: ", data.shape)
+                #data = torch.reshape(data, (-1,))
+                #print("size of data: ", data.shape)
+                
+                # sys.exit()
+                out, feat = self(data)
+                #print("passing this line")
+                output.append(out)
+                labels.append(label)
+                
+                # print("Self Features in forward funtion is : ",
+                #       self._features.keys())
+                if len(features) == 0:
+                    features = {key: [] for key in self._features.keys()}
+                for k in features.keys():
+                    features[k].append(feat[k])
+            for k in features.keys():
+                features[k] = torch.cat(features[k]).cpu().detach().numpy()
+        output_np = torch.cat(output).cpu().detach().numpy()
+        labels_np = torch.cat(labels).cpu().detach().numpy()
+        return labels_np, output_np, features
+
+    def predict_knn_openood(self, images):   # predict_knn_openood version
+        print("confidenciator.py  ==> FeatureExtractor.predict_knn()")
+        print("predict_knn() openood version called")
+
+        #images = torch.tensor(images, dtype=torch.float32)
+        #images = self.transform(images)
+        #images = TensorDataset(images)
+        # images = DataLoader(images, batch_size=128)
+        # changing this batch size for imagenet from 128 to 256
+        #images = DataLoader(images, batch_size=256)
+
+        output = []
+        pen_features = []
+        with torch.no_grad():
+            for i, data in enumerate(images):
+                # print("i Value: ", i)
+                #print("Self Features in forward funtion is : ", self._features.keys())
+                #print("data[0].shape :",data[0].shape)
+                #batch_size = data[0].shape
+                #print("batch_size[0] :", batch_size[0])
+                
+                #data = data[0].to(self.device)
+                data = data["data"]
+                data = data.to(self.device)
+                out, features = self.model.forward_knn2(data, return_feature_list = True)
+                # print("feature.shape :",feature.shape)
+                # print("length of features :", len(features))
+                # print("shape of final layer :", features[-1].shape)
+                feature = features[-1]
+
+                # if len(features) == 0:
+                #   feat = {key: [] for key in self._features.keys()}
+                # for k in feat.keys():
+                #   print("Feature k: ", k)
+                #  print("feature data: " , feature.shape)
+                # features.append(normalizer(feature.data.cpu().numpy()))
+                 
+                dim = feature.shape[1]
+                # normalizer1 = normalizer(feature.data.cpu().numpy().reshape(int(batch_size[0]), dim, -1))
+                # pen_features.append(np.squeeze(normalizer1))
+                # activation_log.append(np.squeeze(normalizer1))
+                
+                pen_features.append(normalizer(feature.data.cpu().numpy().reshape(int(data.shape[0]),dim , -1).mean(2)))
+                
+                if out is not None:
+                    output.append(out)
+            self.knn_features = np.concatenate(pen_features, axis=0)
+        return output if len(output) == 0 else torch.cat(output), self.knn_features
+
+    # predict_docu
+    def predict(self, images):   # predict_docu version
+        """ 
+        receives an array of (5000,3,32,32) size (for cifar10)
+        returns output_np and features
+        output_np.shape = (50000,10)  # predictions of corresponding images
+        features = a dictionary containing the Max_relu_n, Min_relu_n for all the images
+        this function adds activation layer features Max_relu_n, Min_relu_n
+        """
+        print("confidenciator.py  ==> FeatureExtractor.predict()")
+        print("predict() document version called")
+
+        #print("incoming shape to FeatureExtractor.predict()  : ", images.shape)
+        # images = torch.tensor(images, dtype=torch.float)
+        # images = self.transform(images)
+        # images = TensorDataset(images)
+        # images = DataLoader(images, batch_size=128)
+        output = []
+        labels = []
+        features = {}
+        with torch.no_grad():
+            for i, data in enumerate(images):
+                # print(f"Computing predictions: {i + 1}/{len(images)}             ", end="\r")
+                # print(" 
                 # print("data shape: ", data.keys())
->>>>>>> Stashed changes
                 
                 # commenting for document
                 # data = data["data"]
@@ -179,7 +281,7 @@ class FeatureExtractor(nn.Module):
                 # data = data[0].to(self.device)
                 # data = data.to(self.device)
                 #data = torch.moveaxis(data, 1, 3)
-                print("size of data: ", data.shape)
+                # print("size of data: ", data.shape)
                 #data = torch.reshape(data, (-1,))
                 # print("size of data: ", data.shape)
                 
@@ -201,15 +303,19 @@ class FeatureExtractor(nn.Module):
         # labels_np = torch.cat(labels).cpu().detach().numpy()
         labels_np = []
         return labels_np, output_np, features
+    
+    
 
-    def predict_knn(self, images):
+    def predict_knn(self, images):  # predict_knn_docu version
         print("confidenciator.py  ==> FeatureExtractor.predict_knn()")
-        images = torch.tensor(images, dtype=torch.float32)
-        images = self.transform(images)
-        images = TensorDataset(images)
+        print("predict_knn() document version called")
+
+        #images = torch.tensor(images, dtype=torch.float32)
+        #images = self.transform(images)
+        #images = TensorDataset(images)
         # images = DataLoader(images, batch_size=128)
         # changing this batch size for imagenet from 128 to 256
-        images = DataLoader(images, batch_size=256)
+        #images = DataLoader(images, batch_size=256)
 
         output = []
         pen_features = []
@@ -217,13 +323,10 @@ class FeatureExtractor(nn.Module):
             for i, data in enumerate(images):
                 # print("i Value: ", i)
                 #print("Self Features in forward funtion is : ", self._features.keys())
-                print("data[0].shape :",data[0].shape)
-                batch_size = data[0].shape
-                print("batch_size[0] :", batch_size[0])
+                #print("data[0].shape :",data[0].shape)
+                #batch_size = data[0].shape
+                #print("batch_size[0] :", batch_size[0])
                 
-<<<<<<< Updated upstream
-                data = data[0].to(self.device)
-=======
                 # data = data[0].to(self.device)
                 
                 if isinstance(data, list):
@@ -236,11 +339,10 @@ class FeatureExtractor(nn.Module):
                 # data = data["data"]
                 # data = data.to(self.device)
                 
->>>>>>> Stashed changes
                 out, features = self.model.forward_knn2(data, return_feature_list = True)
                 # print("feature.shape :",feature.shape)
-                print("length of features :", len(features))
-                print("shape of final layer :", features[-1].shape)
+                # print("length of features :", len(features))
+                # print("shape of final layer :", features[-1].shape)
                 feature = features[-1]
 
                 # if len(features) == 0:
@@ -255,7 +357,7 @@ class FeatureExtractor(nn.Module):
                 # pen_features.append(np.squeeze(normalizer1))
                 # activation_log.append(np.squeeze(normalizer1))
                 
-                pen_features.append(normalizer(feature.data.cpu().numpy().reshape(int(batch_size[0]),dim , -1).mean(2)))
+                pen_features.append(normalizer(feature.data.cpu().numpy().reshape(int(data.shape[0]),dim , -1).mean(2)))
                 
                 if out is not None:
                     output.append(out)
@@ -306,38 +408,57 @@ class Confidenciator:
         self.model = FeatureExtractor(model, transform, features)
         self.feat_cols = []
         #print("train set shape Before add_prediction_and_features : ", train_set.shape)
-        train_set = self.add_prediction_and_features_dl(train_set)
-        print("train set shape After add_prediction_and_features: ", train_set.shape)
+        train_set_mahala = self.add_prediction_and_features_dl(train_set)
+        train_set_knn = self.add_prediction_and_features_knn(train_set)
+        # train_set_final_mahala = self.add_prediction_and_penultimate_features_dl_to_mahala(train_set)
+        # print("train set shape After add_prediction_and_features: ", train_set.shape)
+        # combine_train_set_mahala_knn = pd.concat([train_set_mahala, train_set_knn], ignore_index=True, axis=1)
         self.index = None
         self.K = 50
 
         #train_set = train_set[train_set["is_correct"]]
-        print("train_set of shape:  ", train_set.shape)
+        # print("combine_train_set_mahala_knn of shape:  ", combine_train_set_mahala_knn.shape)
         self.lr = None
         self.coeff = None
         self.concatenated_vectors = None
+        self.pt_combine = PowerTransformer()
+        self.pt_final_mahala = PowerTransformer()
+        self.scaler_final_mahala = StandardScaler()
+        self.scaler_combine = StandardScaler()
         self.pt = PowerTransformer()
         self.pt_knn = PowerTransformer()
         self.scaler = StandardScaler()
         self.scaler_knn = StandardScaler()
         print("[self.feat_cols]:\n", [self.feat_cols])
         x = self.pt.fit_transform(
-            self.scaler.fit_transform(train_set[self.feat_cols]))
+            self.scaler.fit_transform(train_set_mahala))
+        # x = self.pt.fit_transform(
+        #     self.scaler.fit_transform(train_set_mahala[self.feat_cols]))
+        # x_combine = self.pt_combine.fit_transform(self.scaler_combine.fit_transform(combine_train_set_mahala_knn))
+        # x_final_mahala = self.pt_final_mahala.fit_transform(self.scaler_final_mahala.fit_transform(train_set_final_mahala))
         
         if reg < np.inf:
             cov = np.cov(x, rowvar=False)
+            # cov_comb = np.cov(x_combine, rowvar=False)
+            # cov_final_mahala = np.cov(x_final_mahala, rowvar=False)
             self.inv_cov = np.linalg.inv(
                 cov + reg * np.identity(len(self.feat_cols)))
+            # self.combine_inv_cov = np.linalg.inv(
+            #     cov_comb + reg * np.identity(combine_train_set_mahala_knn.shape[1]))
+            # self.final_mahala_inv_cov = np.linalg.inv(
+                # cov_final_mahala + reg * np.identity(train_set_final_mahala.shape[1]))
         else:
             self.inv_cov = np.identity(len(self.feat_cols))
             
         self.mean = np.zeros(len(self.feat_cols))
+        # self.comb_mean = np.zeros(combine_train_set_mahala_knn.shape[1])
+        # self.mean_final_mahala = np.zeros(train_set_final_mahala.shape[1])
         self.reg = reg
         
         # calculating mahala for trainset
         self.mahala_train = -np.apply_along_axis(lambda row: mahalanobis(row, self.mean, self.inv_cov), 1, x)
         mahala_sq = -(self.mahala_train ** 2)
-        self.mahala_mean = (mahala_sq.mean())
+        self.mahala_mean = np.abs(mahala_sq.mean())
         self.mahala_std = np.abs(mahala_sq.std())
         self.mahala_max_mean = self.mahala_train.mean()
         self.mahala_max_std = self.mahala_train.std()
@@ -369,7 +490,7 @@ class Confidenciator:
         return df
     
     def add_prediction_and_features_dl(self, dataloader):
-        print("\nconfidenciator.py  ==> Confidenciator.add_prediction_and_features()")
+        print("\nconfidenciator.py  ==> Confidenciator.add_prediction_and_features_dl()")
         
         labels, pred, features = self.model.predict(dataloader)
         
@@ -377,37 +498,46 @@ class Confidenciator:
             self.feat_cols = ["Max_out", "Min_out"] + list(features.keys())
             
         df = pd.DataFrame(features)
-        df["pred"] = np.argmax(pred, axis=-1)
-        df["is_correct"] = df["pred"] == labels
+        # df["pred"] = np.argmax(pred, axis=-1)
+        # df["is_correct"] = df["pred"] == labels
         df["Max_out"] = np.max(pred, axis=-1)
         df["Min_out"] = -np.min(pred, axis=-1)
         # self.extreme_value_vector = df[self.feat_cols]
-        print("returning add_prediction_and_features() with shape:", df.shape)
-        print(df.columns)
+        print("returning add_prediction_and_features_dl() with shape:", df.shape)
+        return df
+    
+    def add_prediction_and_penultimate_features_dl_to_mahala(self, dataloader):
+        print("\nconfidenciator.py  ==> Confidenciator.add_prediction_and_penultimate_features_dl_to_mahala()")
+        
+        pred, features = self.model.predict_knn(dataloader)
+        #pred, features = self.model.predict(get_images_and_labelsd(df, labels=False, chw=True))
+        df = pd.DataFrame(features)
+        print("Mahala dataset shape: ", df.shape)
+        #return df
         return df
 
-    def add_prediction_and_features_knn(self, df: pd.DataFrame):
-        print("\nconfidenciator.py  ==> Confidenciator.add_prediction_and_features_knn()")
-        print("add prediction and features knn")
-        pred, features = self.model.predict_knn(
-            get_images_and_labels(df, labels=False, chw=True))
-        #pred, features = self.model.predict(get_images_and_labels(df, labels=False, chw=True))
-        print("Features shape: ", (features.shape))
+    def add_prediction_and_extreme_features_dl_to_knn(self, dataloader):
+        print("\nconfidenciator.py  ==> Confidenciator.add_prediction_and_extreme_features_dl_to_knn()")
+        
+        labels, pred, features = self.model.predict(dataloader)
+        
+        if len(self.feat_cols) == 0:
+            self.feat_cols = ["Max_out", "Min_out"] + list(features.keys())
+            
         df = pd.DataFrame(features)
-        # self.penultimate_feature_vector = df
-        # print("Shape of Penultimate Layer: ", self.penultimate_feature_vector.shape)
-        # self.concatenated_vectors = pd.concat([self.extreme_value_vector, self.penultimate_feature_vector], axis = 1)
-        print("Shape of dataframe: ", df.shape)
-        # Testing for Max - Min Values for KNN
-        # if len(self.feat_cols) == 0:
-        #     self.feat_cols = ["Max_out", "Min_out"] + list(features.keys())
-        # df["pred"] = np.argmax(pred, axis=-1)
-        # df["is_correct"] = df["pred"] == df["label"].to_numpy()
-        # df["Max_out"] = np.max(pred, axis=-1)
-        # df["Min_out"] = -np.min(pred, axis=-1)
-        # df = pd.concat([df, pd.DataFrame(features, index=df.index)], axis=1)
-        print("MR - added dataset shape", df.shape)
-        # return self.concatenated_vectors
+        #df["pred"] = np.argmax(pred, axis=-1)
+        #df["is_correct"] = df["pred"] == labels
+        df["Max_out"] = np.max(pred, axis=-1)
+        df["Min_out"] = -np.min(pred, axis=-1)
+        # self.extreme_value_vector = df[self.feat_cols]
+        print("returning add_prediction_and_extreme_features_dl_to_knn() with shape:", df.shape)
+        return df
+
+    def add_prediction_and_features_knn(self, dataloader):
+        print("\nconfidenciator.py  ==> Confidenciator.add_prediction_and_features_knn()")
+        pred, features = self.model.predict_knn(dataloader)
+        #pred, features = self.model.predict(get_images_and_labelsd(df, labels=False, chw=True))
+        df = pd.DataFrame(features)
         return df
 
     def fit(self, cal: Dict[str, pd.DataFrame], c=None):
@@ -438,35 +568,25 @@ class Confidenciator:
 
     def fit_knn_faiss(self, df: pd.DataFrame, c=None):
         print("confidenciator.py  ==> Confidenciator.fit_knn_faiss()")
-        #feature = self.add_prediction_and_features(df)
-        print("After this it fails?")
-        # df = self.concatenated_vectors
-        # Added to only extract Min and Max
-        #df = df[self.feat_cols]
-        print("Shape of df: ", df.shape)
         ##
         # save pickle file here
-        with open('/home/saiful/confidence-magesh_MR/confidence-magesh/OpenOOD/pickle_files/df_imagenet_traindata_from_xood.pickle', 'wb') as handle:
-            pickle.dump(df, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        
-        ##
         self.index = faiss.IndexFlatL2(df.shape[1])
-        print("It is failing here?")
 
         #x = self.pt.transform(self.scaler.transform(df[self.feat_cols]))
         # x = self.pt_knn.fit_transform(self.scaler_knn.fit_transform(df))
         # print("X Shape before adding to index: ", x.shape)
         x = df.to_numpy()
+        self.knn_n = x.shape[1]
         self.index.add((np.ascontiguousarray(x.astype(np.float32))))
         train_D, _ = self.index.search((np.ascontiguousarray(x.astype(np.float32))), self.K)
         kth_train_dist = -train_D[:, -1]
         
         print("**********************")
-        knn_log = - df.shape[1] * np.log(-kth_train_dist)
+        knn_log = - df.shape[1] * np.log(-kth_train_dist, where = -kth_train_dist > 0.0)
         self.knn_std = np.abs(knn_log.std())
-        self.knn_mean =  (knn_log.mean())
-        self.knn_max_mean = kth_train_dist.mean()
-        self.knn_max_std= kth_train_dist.std()
+        self.knn_mean =  (np.abs(knn_log).mean())
+        self.knn_max_mean = np.abs(kth_train_dist.mean())
+        self.knn_max_std= np.abs(kth_train_dist.std())
         print("**")
         print("**")
         print("KNN Mean: ", self.knn_mean)
@@ -492,8 +612,6 @@ class Confidenciator:
 
     def predict_knn_faiss(self, dataset: pd.DataFrame):
         print("confidenciator.py  ==> Confidenciator.predict_knn_faiss()")
-        # if not all(col in dataset.columns for col in self.feat_cols):
-        #   dataset = self.add_prediction_and_features(dataset)
         print("TESTING DATASET: ", dataset.shape)
         #dataset = dataset[self.feat_cols]
         # if not isInTest:
@@ -522,24 +640,59 @@ class Confidenciator:
         D, _ = self.index.search((np.ascontiguousarray(
             feature_normed.astype(np.float32))), self.K)
         kth_dist = -D[:, -1]
-        #_, pred = torch.max(torch.softmax(output, dim=1), dim=1)
-        #print("Predictionn shape: ", pred.shape)
-        print((torch.from_numpy(kth_dist)).shape)
-        print("Kth Type:", type(kth_dist))
-        # return pred, torch.from_numpy(kth_dist)
-        # return torch.from_numpy(kth_dist)
         return kth_dist
 
-    def predict_mahala(self, dataset: pd.DataFrame):
+    def predict_mahala(self, dataset: pd.DataFrame):  # this was buggy, now its working properly
         print("confidenciator.py  ==> Confidenciator.predict_mahala()")
         print("dataset.shape initial", dataset.shape)
         if not all(col in dataset.columns for col in self.feat_cols):
             dataset = self.add_prediction_and_features(dataset)
             
-        x = self.pt.transform(self.scaler.transform(dataset[self.feat_cols]))
+        # x = self.pt.transform(self.scaler.transform(dataset[self.feat_cols]))
+        x = self.pt.transform(self.scaler.transform(dataset))
         
         if self.reg < np.inf:
             return -np.apply_along_axis(lambda row: mahalanobis(row, self.mean, self.inv_cov), 1, x)
+        return -np.apply_along_axis(lambda row: np.linalg.norm(row - self.mean, ord=2), 1, x)
+    
+    def predict_mahala_ok(self, dataset: pd.DataFrame):  # this is from the older version
+        print("confidenciator.py  ==> Confidenciator.predict_mahala()")
+        print("dataset.shape initial", dataset.shape)
+        if not all(col in dataset.columns for col in self.feat_cols):
+            print("inside if cond of predict_mahala")
+            dataset = self.add_prediction_and_features(dataset)
+        print("dataset.shape second:", dataset.shape)
+            
+        x = self.pt.transform(self.scaler.transform(dataset[self.feat_cols]))
+        print("x.shape:", x.shape)
+        if self.reg < np.inf:
+            return -np.apply_along_axis(lambda row: mahalanobis(row, self.mean, self.inv_cov), 1, x)
+        return -np.apply_along_axis(lambda row: np.linalg.norm(row - self.mean, ord=2), 1, x)
+
+    def predict_comb_mahala(self, dataset: pd.DataFrame):
+        print("confidenciator.py  ==> Confidenciator.predict_comb_mahala()")
+        print("dataset.shape initial", dataset.shape)
+        # if not all(col in dataset.columns for col in self.feat_cols):
+        #     dataset = self.add_prediction_and_features(dataset)
+            
+        # x = self.pt.transform(self.scaler.transform(dataset[self.feat_cols]))
+        x = self.pt_combine.transform(self.scaler_combine.transform(dataset))
+        
+        if self.reg < np.inf:
+            return -np.apply_along_axis(lambda row: mahalanobis(row, self.comb_mean, self.combine_inv_cov), 1, x)
+        return -np.apply_along_axis(lambda row: np.linalg.norm(row - self.mean, ord=2), 1, x)
+    
+    def predict_final_mahala(self, dataset: pd.DataFrame):
+        print("confidenciator.py  ==> Confidenciator.predict_final_mahala()")
+        print("dataset.shape initial", dataset.shape)
+        # if not all(col in dataset.columns for col in self.feat_cols):
+        #     dataset = self.add_prediction_and_features(dataset)
+            
+        # x = self.pt.transform(self.scaler.transform(dataset[self.feat_cols]))
+        x = self.pt_final_mahala.transform(self.pt_final_mahala.transform(dataset))
+        
+        if self.reg < np.inf:
+            return -np.apply_along_axis(lambda row: mahalanobis(row, self.mean_final_mahala, self.final_mahala_inv_cov), 1, x)
         return -np.apply_along_axis(lambda row: np.linalg.norm(row - self.mean, ord=2), 1, x)
 
     def predict_proba(self, dataset: pd.DataFrame):

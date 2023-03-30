@@ -1,13 +1,8 @@
 import os
-<<<<<<< Updated upstream
-os.environ["CUDA_VISIBLE_DEVICES"]="7"
-=======
 os.environ["CUDA_VISIBLE_DEVICES"]="4"
 import torch.multiprocessing
 torch.multiprocessing.set_sharing_strategy('file_system')
->>>>>>> Stashed changes
 from pathlib import Path
-
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
@@ -55,15 +50,10 @@ def taylor_scores(in_dist, out_dist):
     return scores
 
 
-def combine_prob(pred_values):
-    print("test_ood.py ==> combine_prob()")
-    alpha = 0.5
-    print("pred_values: ",pred_values)
-
-
 class FeatureTester: 
     def __init__(self, dataset: str, model: str, feature_model, name=""):
         print("\n\n-------------test_ood.py ==> FeatureTester-------------")
+        self.ood = {}
         self.dataset = dataset
         self.model = model
         # data.img_shape = (32, 32, 3)
@@ -92,19 +82,42 @@ class FeatureTester:
 
         print("\n\n   ##  Adding Feature Columns   ##  ")
         print("feature_model :", feature_model)
+        
+        # add_prediction_and_features
         for name, df in self.data.items():  
+            print("flag 3.6 ", type(self.data[name]))
             if feature_model == "mahala":
                 print("It is goign in mahala")
                 print("running set  :",name)
-                self.data[name] = self.conf.add_prediction_and_features(
-                    self.data[name]) # name = Train, Test, Val
-            else:
+                # self.data[name] = self.conf.add_prediction_and_penultimate_features_dl_to_mahala(
+                #     self.data[name])
+                self.data[name] = self.conf.add_prediction_and_features_dl(
+                    self.data[name]) # name = Train, Test, Val 
+
+                
+            elif feature_model == "knn":
                 print("ELSE PART IS GETTING EXECUTED")
                 print("running set  :",name)
                 self.data[name] = self.conf.add_prediction_and_features_knn(
                     self.data[name])
-            #self.data[name] = self.conf.add_prediction_and_features(self.data[name], isOOD=False)
-            print("Data Frame 2 shape: ", self.data[name].shape)
+                # self.data[name] = self.conf.add_prediction_and_extreme_features_dl_to_knn(
+                #     self.data[name])
+                print("knn extreme feature shape: ", self.data[name].shape)
+                
+            else:
+                mahala_df = self.conf.add_prediction_and_features_dl(
+                    self.data[name])
+                knn_df = self.conf.add_prediction_and_features_knn(
+                    self.data[name])
+                print("flag 3.1 type(mahala_df):",type(mahala_df) )
+                print("flag 3.1 type(knn_df):",type(knn_df) )
+
+                print("mahala_df.shape :",mahala_df.shape)
+                print("knn_df.shape :",knn_df.shape)
+                self.data[name] = pd.concat([mahala_df, knn_df], ignore_index=True, axis=1)
+
+                print("flag 3.7 self.data[name].shape :",self.data[name].shape)
+                
         print("flag 3 self.data.keys() :", self.data.keys())
         
         # self.compute_accuracy(self.data)
@@ -112,12 +125,28 @@ class FeatureTester:
         print("\n\n  ##  Creating Out-Of-Distribution Sets  ##  ", flush=True)
         if feature_model == "mahala":
             print("It is goign in mahala")
-            self.ood = {name: self.conf.add_prediction_and_features(
+            # self.ood = {name: self.conf.add_prediction_and_penultimate_features_dl_to_mahala(
+            #     df) for name, df in out_of_dist(self.dataset).items()}
+            self.ood = {name: self.conf.add_prediction_and_features_dl(
                 df) for name, df in out_of_dist(self.dataset).items()}
-        else:
+            
+        elif feature_model == "knn":
             print("It is goign in knn")
             self.ood = {name: self.conf.add_prediction_and_features_knn(
                 df) for name, df in out_of_dist(self.dataset).items()}
+            # self.ood = {name: self.conf.add_prediction_and_extreme_features_dl_to_knn(
+            #     df) for name, df in out_of_dist(self.dataset).items()}
+            
+        else:
+            for name, df in out_of_dist(self.dataset).items():
+                mahala_ood = self.conf.add_prediction_and_features_dl(df)
+                knn_ood = self.conf.add_prediction_and_features_knn(df)
+                self.ood[name] = pd.concat([mahala_ood, knn_ood], ignore_index=True, axis=1)
+            #self.ood = {name: self.conf.add_prediction_and_features_knn(
+             #   df) for name, df in out_of_dist(self.dataset).items()}
+            #self.ood = {name: self.conf.add_prediction_and_extreme_features_dl_to_knn(
+             #   df) for name, df in out_of_dist(self.dataset).items()}
+            
         #self.ood = {name: self.conf.add_prediction_and_features(df) for name, df in out_of_dist(self.dataset).items()}
         #self.ood = {name: df for name, df in out_of_dist(self.dataset).items()}
         print("Length of ood: ", self.ood.keys())
@@ -333,17 +362,17 @@ class FeatureTester:
 
         return result
 
-def log_probability(pred_mahala, pred_knn):
+def log_probability_original(pred_mahala, pred_knn, n):
     print("test_ood.py ==> log_probability()")
-    n = 2048 #512
+    # n = 2048 #512
     if isinstance(pred_mahala, dict):
         result = {name: ((-n * (np.log(-(pred_knn[name])))) - (pred_mahala[name] ** 2)) for name, df in pred_mahala.items()}
     else:
         result = ((-n * (np.log(-(pred_knn)))) - (pred_mahala ** 2))
     return result
 
-def normalized_log_probability(pred_mahala, pred_knn, mahala_mean, knn_mean, mahala_std, knn_std):
-    n = 2048 #512
+def normalized_log_probability_original(pred_mahala, pred_knn, mahala_mean, knn_mean, mahala_std, knn_std, n):
+    # n = 2048 #512
     if isinstance(pred_mahala, dict):
         pred_mahala_result = {name: - (pred_mahala[name] ** 2) for name, df in pred_mahala.items()}
         pred_knn_result = {name: (-n * np.log(-pred_knn[name])) for name, df in pred_mahala.items()}
@@ -357,13 +386,44 @@ def normalized_log_probability(pred_mahala, pred_knn, mahala_mean, knn_mean, mah
         result = ((pred_mahala_result - mahala_mean) / mahala_std + (pred_knn_result - knn_mean) / knn_std)
     return result
 
-def square_log_probability(pred_mahala, pred_knn):
+def square_log_probability_original(pred_mahala, pred_knn, n):
     print("test_ood.py ==> square_log_probability()")
-    n = 512
     if isinstance(pred_mahala, dict):
         result = {name: ((- math.sqrt(n) * (np.log(-(pred_knn[name])))) - (pred_mahala[name] ** 2)) for name, df in pred_mahala.items()}
     else:
         result = ((- (math.sqrt(n)) * (np.log(-(pred_knn)))) - (pred_mahala ** 2))
+    return result
+
+def log_probability(pred_mahala, pred_knn, n):
+    print("test_ood.py ==> log_probability()")
+    # n = 2048 #512
+    if isinstance(pred_mahala, dict):
+        result = {name: ((-n * (np.log(-(pred_knn[name]), where = -(pred_knn[name]) > 0.0))) - (pred_mahala[name] ** 2)) for name, df in pred_mahala.items()}
+    else:
+        result = ((-n * (np.log(-(pred_knn), where = -(pred_knn) > 0.0))) - (pred_mahala ** 2))
+    return result
+
+def normalized_log_probability(pred_mahala, pred_knn, mahala_mean, knn_mean, mahala_std, knn_std, n):
+    # n = 2048 #512
+    if isinstance(pred_mahala, dict):
+        pred_mahala_result = {name: - (pred_mahala[name] ** 2) for name, df in pred_mahala.items()}
+        pred_knn_result = {name: (-n * (np.log(-(pred_knn[name]), where = -(pred_knn[name]) > 0.0))) for name, df in pred_mahala.items()}
+        result = {name: (((pred_mahala_result[name] - mahala_mean) / mahala_std) 
+            + (pred_knn_result[name] - knn_mean) / knn_std ) for name, df in pred_mahala.items()}
+    else:
+        pred_knn_result = (-n * (np.log(-(pred_knn), where = -(pred_knn) > 0.0)))
+        pred_mahala_result = - (pred_mahala **2)
+
+        result = ((pred_mahala_result - mahala_mean) / mahala_std + (pred_knn_result - knn_mean) / knn_std)
+        
+    return result
+
+def square_log_probability(pred_mahala, pred_knn, n):
+    print("test_ood.py ==> square_log_probability()")
+    if isinstance(pred_mahala, dict):
+        result = {name: (((- math.sqrt(n) * (np.log(-(pred_knn[name]), where = -(pred_knn[name]) > 0.0)))) - (pred_mahala[name] ** 2)) for name, df in pred_mahala.items()}
+    else:
+        result = ((- (math.sqrt(n)) * (np.log(-(pred_knn), where = -(pred_knn) > 0.0))) - (pred_mahala ** 2))
     return result
 
 def weighted_geometric_mean(pred_mahala, pred_knn, alpha):
@@ -428,141 +488,92 @@ def test_ood(dataset, model, alpha):
     pred_clean_probs = []
     #ft.create_summary(ft.conf.predict_mahala, "x-ood-mahala")
 
-<<<<<<< Updated upstream
-    # ft_mahala
-    ft_mahala = FeatureTester(dataset, model, "mahala", "")
-=======
     # ft_mahala -> this will be in mahala
-    ft_mahala = FeatureTester(dataset, model, "mahala", "document")
->>>>>>> Stashed changes
+    # FeatureTester__init__(self, dataset: str, model: str, feature_model, folder_name=""
+    ft_mahala = FeatureTester(dataset, model, "mahala", "knn")
     pred_mahala, pred_clean_mahala = ft_mahala.create_summary_combine(
         ft_mahala.conf.predict_mahala, "x-ood-mahala")
     ft_mahala.taylor_table(pred_mahala, pred_clean_mahala,
-                            "x-ood-mahala-" + str(alpha), "mahala")
+                            "x-ood-mahala-extreme-" + str(alpha), "mahala")
 
-<<<<<<< Updated upstream
-    #
-=======
 
     # ft_knn - > this will be in KNN
-    ft_knn = FeatureTester(dataset, model, "knn", "document")
+    ft_knn = FeatureTester(dataset, model, "knn", "knn")
     ft_knn.fit_knn(test=False)
     pred_knn, pred_clean_knn = ft_knn.create_summary_combine(
         ft_knn.conf.predict_knn_faiss, "open-ood-knn")
+    ft_knn.taylor_table(pred_knn, pred_clean_knn, "knn-penultimate-features-" + str(alpha), "knn")
     # if (np.isnan(pred_knn)== True):
+    # if (pd.isna(pred_knn)== True):
         
     #     ft_knn.taylor_table(pred_knn, pred_clean_knn, "knn-penultimate-features-" + str(alpha), "knn")
     # else:
     #     print("flag It is failing ")
-    ft_knn.taylor_table(pred_knn, pred_clean_knn, "knn-penultimate-features-" + str(alpha), "knn")
 
     # hist_plot_mahala_knn(pred_mahala,pred_knn,"mahala_knn")
->>>>>>> Stashed changes
     
-    # ft_knn
-    # ft_knn = FeatureTester(dataset, model, "", "knn")
-    # ft_knn.fit_knn(test=False)
-    # pred_knn, pred_clean_knn = ft_knn.create_summary_combine(
-    #     ft_knn.conf.predict_knn_faiss, "open-ood-knn")
-    # ft_knn.taylor_table(pred_knn, pred_clean_knn, "knn-" + str(alpha), "knn")
-    # # hist_plot_mahala_knn(pred_mahala,pred_knn,"mahala_knn")
+    # ==========================================
+    #     
+    # ==========================================
     
-    # if dataset == "imagenet":
-    #     filename = "train_"+ str(dataset) + "_" + str(model) + "_"
-    # else:
-    #     filename = str(dataset) + "_" + str(model) + "_"
-    # with open('/home/saiful/confidence-magesh_MR/confidence-magesh/OpenOOD/pickle_files/'+filename+'_pred_knn.pickle', 'wb') as handle1:
-    #     pickle.dump(pred_knn, handle1, protocol=pickle.HIGHEST_PROTOCOL)
-    # with open('/home/saiful/confidence-magesh_MR/confidence-magesh/OpenOOD/pickle_files/'+filename+'_pred_clean_knn.pickle', 'wb') as handle2:
-    #     pickle.dump(pred_clean_knn, handle2, protocol=pickle.HIGHEST_PROTOCOL)
-    # with open('/home/saiful/confidence-magesh_MR/confidence-magesh/OpenOOD/pickle_files/'+filename+'_pred_mahala.pickle', 'wb') as handle3:
-    #     pickle.dump(pred_mahala, handle3, protocol=pickle.HIGHEST_PROTOCOL)
-    # with open('/home/saiful/confidence-magesh_MR/confidence-magesh/OpenOOD/pickle_files/'+filename+'pred_clean_mahala.pickle', 'wb') as handle4:
-    #     pickle.dump(pred_clean_mahala, handle4, protocol=pickle.HIGHEST_PROTOCOL)
-    
-    # # # # commenting for concatenated- untill f_ft_knn.taylor table
-    # # # pred_probs.append(pred_knn) 
-    # # # pred_clean_probs.append(pred_clean_knn)
-    
+    # # weighted_arthmetic_mean
     # pred_arth = weighted_arthmetic_mean(pred_mahala, pred_knn, ft_mahala.conf.mahala_mean, ft_knn.conf.knn_mean, alpha)
-    # pred_geo = weighted_geometric_mean(pred_mahala, pred_knn, alpha)
     # print("pred_arth Keys:", pred_arth.keys())
     # pred_clean_arth = weighted_arthmetic_mean(pred_clean_mahala, pred_clean_knn, ft_mahala.conf.mahala_mean, ft_knn.conf.knn_mean, alpha)
+    # ft_knn.taylor_table(pred_arth, pred_clean_arth, "x-ood-mahala-knn-arth-" + str(alpha),"arthmetic_mean")
 
+    # # weighted_geometric_mean
+    # pred_geo = weighted_geometric_mean(pred_mahala, pred_knn, alpha)
     # pred_clean_geo = weighted_geometric_mean(
     #     pred_clean_mahala, pred_clean_knn, alpha)
-    # # hist_plot(pred, pred_clean, "arthmetic_mean" )
-    # ft_knn.taylor_table(pred_arth, pred_clean_arth, "x-ood-mahala-knn-arth-" + str(alpha),"arthmetic_mean")
     # ft_knn.taylor_table(pred_geo, pred_clean_geo, "x-ood-mahala-knn-geo-" + str(alpha),"geometric_mean")
    
-<<<<<<< Updated upstream
-    # # # print("pred_mahala : ", pred_mahala)
-    # # # print("pred_knn : ", pred_knn)
-
-    
-    # # log probabilty
-    # pred_log = log_probability(pred_mahala, pred_knn)
-    # print("pred_log: ", pred_log)
-    # pred_clean_log = log_probability(pred_clean_mahala, pred_clean_knn)
-    # print("pred_clean_log: ", pred_clean_log)
-    # # hist_plot(pred_log, pred_clean_log, "log_probability" )
-    # ft_knn.taylor_table(pred_log, pred_clean_log, "x-ood-mahala-knn-log", "log_probability" )
-    
-    # # square log probabilty  
-    # pred_sq_log = square_log_probability(pred_mahala, pred_knn)
-    # # print("pred_sq_log: ", pred_sq_log)
-    # pred_clean_sq_log = square_log_probability(pred_clean_mahala, pred_clean_knn)
-    # # print("pred_clean_sq_log: ", pred_clean_sq_log)
-    # # hist_plot(pred_sq_log, pred_clean_sq_log, "square_log_probability" )
-    # ft_knn.taylor_table(pred_sq_log, pred_clean_sq_log, "x-ood-mahala-knn-log-sq", "square_log_probability")
-    
-    # # normalized_log_probability
-    # pred_n_log = normalized_log_probability(pred_mahala, pred_knn,
-    #         ft_mahala.conf.mahala_mean, ft_knn.conf.knn_mean, ft_mahala.conf.mahala_std, ft_knn.conf.knn_std)
-    # pred_n_clean_log = normalized_log_probability(pred_clean_mahala, pred_clean_knn, 
-    #         ft_mahala.conf.mahala_mean, ft_knn.conf.knn_mean, ft_mahala.conf.mahala_std, ft_knn.conf.knn_std)
-    # # hist_plot(pred_n_log, pred_n_clean_log, "normalized_log_probability" )
-    # ft_knn.taylor_table(pred_n_log, pred_n_clean_log, "x-ood-mahala-knn-n-log","normalized_log_probability")
-=======
  
+    print(f" pred_mahala 2.51 : {pred_mahala}")
+    print(f" pred_knn 2.51: {pred_knn}")
+    
+    print(f" pred_clean_mahala 2.52: {pred_clean_mahala}")
+    print(f" pred_clean_knn 2.52: {pred_clean_knn}")
+    
+    with open('pred_mahala_docu.pickle', 'wb') as handle:
+        pickle.dump(pred_mahala, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        
+    with open('pred_knn_docu.pickle', 'wb') as handle:
+        pickle.dump(pred_knn, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            
+    with open('pred_clean_mahala_docu.pickle', 'wb') as handle:
+        pickle.dump(pred_clean_mahala, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        
+    with open('pred_clean_knn_docu.pickle', 'wb') as handle:
+        pickle.dump(pred_clean_knn, handle, protocol=pickle.HIGHEST_PROTOCOL)
+                
+
+
     # # log probabilty
-    # pred_log = log_probability(pred_mahala, pred_knn)
-    # pred_clean_log = log_probability(pred_clean_mahala, pred_clean_knn)
+    # pred_log = log_probability(pred_mahala, pred_knn, ft_knn.conf.knn_n)
+    # pred_clean_log = log_probability(pred_clean_mahala, pred_clean_knn,ft_knn.conf.knn_n)
     # ft_knn.taylor_table(pred_log, pred_clean_log, "x-ood-mahala-knn-log", "log_probability" )
     
     # # square log probabilty  
-    # pred_sq_log = square_log_probability(pred_mahala, pred_knn)
-    # pred_clean_sq_log = square_log_probability(pred_clean_mahala, pred_clean_knn)
+    # pred_sq_log = square_log_probability(pred_mahala, pred_knn, ft_knn.conf.knn_n)
+    # pred_clean_sq_log = square_log_probability(pred_clean_mahala, pred_clean_knn, ft_knn.conf.knn_n)
     # ft_knn.taylor_table(pred_sq_log, pred_clean_sq_log, "x-ood-mahala-knn-log-sq", "square_log_probability")
     
-    # # normalized_log_probability
-    # pred_n_log = normalized_log_probability(pred_mahala, pred_knn,
-    #         ft_mahala.conf.mahala_mean, ft_knn.conf.knn_mean, ft_mahala.conf.mahala_std, ft_knn.conf.knn_std)
-    # pred_n_clean_log = normalized_log_probability(pred_clean_mahala, pred_clean_knn, 
-    #         ft_mahala.conf.mahala_mean, ft_knn.conf.knn_mean, ft_mahala.conf.mahala_std, ft_knn.conf.knn_std)
-    # ft_knn.taylor_table(pred_n_log, pred_n_clean_log, "x-ood-mahala-knn-n-log","normalized_log_probability")
+    # normalized_log_probability
+    pred_n_log = normalized_log_probability(pred_mahala, pred_knn,
+            ft_mahala.conf.mahala_mean, ft_knn.conf.knn_mean, ft_mahala.conf.mahala_std, ft_knn.conf.knn_std, ft_knn.conf.knn_n)
+    pred_n_clean_log = normalized_log_probability(pred_clean_mahala, pred_clean_knn, 
+            ft_mahala.conf.mahala_mean, ft_knn.conf.knn_mean, ft_mahala.conf.mahala_std, ft_knn.conf.knn_std, ft_knn.conf.knn_n)
+    ft_knn.taylor_table(pred_n_log, pred_n_clean_log, "x-ood-mahala-knn-n-log","normalized_log_probability")
     
->>>>>>> Stashed changes
     
     # # max_distance
     # pred_max = max_distance(pred_mahala, pred_knn, 
     #         ft_mahala.conf.mahala_max_mean, ft_knn.conf.knn_max_mean, ft_mahala.conf.mahala_max_std, ft_knn.conf.knn_max_std)
     # pred_clean_max = max_distance(pred_clean_mahala, pred_clean_knn, 
     #         ft_mahala.conf.mahala_max_mean, ft_knn.conf.knn_max_mean, ft_mahala.conf.mahala_max_std, ft_knn.conf.knn_max_std)
-    # # hist_plot(pred_max, pred_clean_max, "mahala_max_mean" )
     # ft_knn.taylor_table(pred_max, pred_clean_max, "x-ood-mahala-knn-max-","mahala_max_mean" )
 
-<<<<<<< Updated upstream
-    
-    
-    # pred_max_2 = max_distance2(pred_mahala, pred_knn, 
-    #         ft_mahala.conf.mahala_max_mean, ft_knn.conf.knn_max_mean, ft_mahala.conf.mahala_max_std, ft_knn.conf.knn_max_std)
-    # pred_clean_max_2 = max_distance2(pred_clean_mahala, pred_clean_knn, 
-    #         ft_mahala.conf.mahala_max_mean, ft_knn.conf.knn_max_mean, ft_mahala.conf.mahala_max_std, ft_knn.conf.knn_max_std)
-    # ft_knn.taylor_table(pred_max_2, pred_clean_max_2, "x-ood-mahala-knn-max-2")
-
-    # pred_clean = weighted_geometric_mean(pred_clean_probs)
-=======
 
     # ft_knn_comb = FeatureTester(dataset, model, "", "combine")
     # ft_knn_comb.fit_knn(test=False)
@@ -575,7 +586,6 @@ def test_ood(dataset, model, alpha):
     #     ft_mahala_comb.conf.predict_comb_mahala, "x-ood-mahala")
     # ft_mahala_comb.taylor_table(pred_mahala, pred_clean_mahala,
     #                         "knn-mahala-feat-combine-algo-mahalanobis" + str(alpha), "mahala")
->>>>>>> Stashed changes
 
     # ft_mahala.create_summary_combine(ft_mahala.conf.softmax, "baseline")
     # ft.create_summary(ft.conf.energy, "energy")
@@ -596,18 +606,13 @@ if __name__ == "__main__":
     
     start_time = time.time()
     
-<<<<<<< Updated upstream
-    # sys.stdout = open("console_output_knn.txt", "w")
-    # test_ood("mnist", "lenet", 0.5)
-    test_ood("cifar10", "resnet", 0.5)
-=======
-    # sys.stdout = open("console_output_knn_cifar10.txt", "w")
+    sys.stdout = open("console_output_knn_docu.txt", "w")
     # test_ood("mnist", "lenet", 0.5)
     # test_ood("cifar10", "resnet", 0.5)
+
+    # test_ood("cifar100", "resnet", 0.5)
     test_ood("document", "resnet50_docu", 0.5)
 
->>>>>>> Stashed changes
-    # test_ood("cifar100", "resnet", 0.5)
     # test_ood("imagenet", "resnet50", 0.5)
     # for i in [0.7]:
     #   test_ood("imagenet", "resnet34", i)
@@ -622,13 +627,7 @@ if __name__ == "__main__":
     #      test_ood(d, m)
     # for m in "resnet18", "resnet34", "resnet50", "resnet101":
     #     test_ood("imagenet", m)
-<<<<<<< Updated upstream
-    print("\nExecution Complete")
-    print("--- %s seconds ---" % (time.time() - start_time))
-
-=======
     
     print("\nExecution Complete") 
     time_taken = convert_seconds((time.time() - start_time))
     print("--- time taken :  %s ---" % time_taken)
->>>>>>> Stashed changes

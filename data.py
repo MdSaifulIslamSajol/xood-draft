@@ -24,15 +24,11 @@ sys.path.insert(0, '..')  # Enable import from parent folder.
 #sys.modules['OpenOOD.openood.utils'] = utils
 #from OpenOOD.openood.utils import config
 #from OpenOOD.openood_id_ood_and_model_mnist import id_dataloader_from_openood_repo_mnist, ood_dataloader_from_openood_repo_mnist
-<<<<<<< Updated upstream
-from OpenOOD.openood_id_ood_and_model_cifar10 import id_dataloader_from_openood_repo_cifar10
-=======
 from OpenOOD.openood_id_ood_and_model_cifar10 import id_dataloader_from_openood_repo_cifar10 , ood_dataloader_from_openood_repo_cifar10
 from OpenOOD.openood_id_ood_and_model_cifar100 import id_dataloader_from_openood_repo_cifar100 , ood_dataloader_from_openood_repo_cifar100
 from OpenOOD.openood_id_ood_and_model_mnist import id_dataloader_from_openood_repo_mnist , ood_dataloader_from_openood_repo_mnist
 from OpenOOD.openood_id_ood_and_model_imagenet import id_dataloader_from_openood_repo_imagenet , ood_dataloader_from_openood_repo_imagenet
 from document_id_ood_n_model_loader import load_document_id_data, load_document_ood_data
->>>>>>> Stashed changes
 
 img_shape = (32, 32, 3)
 imagenet_transform = torchvision.transforms.Compose([
@@ -64,7 +60,7 @@ def load_dataset(name):
         img_shape = (28, 28, 3)
         # return load_data(mnist.load_data())
         print("calling MINSIT")
-        return load_mnist_data_from_openood()
+        return load_mnist_id_data_from_openood()
     
     elif name == "cifar100":
         img_shape = (32, 32, 3)
@@ -569,7 +565,7 @@ def out_of_dist(dataset_name, debug=False):
     if dataset_name == "mnist":
         mnist_ood = out_of_dict_from_openood_for_mnist()
         datasets.update({
-            "Cifar10": mnist_ood["cifar10"],
+            "Cifar10": mnist_ood["cifar10"] ,
             "NonMNIST": mnist_ood["notmnist"],
             "FashionMNIST": mnist_ood["fashionmnist"],
             "Tin": mnist_ood["tin"],
@@ -578,16 +574,19 @@ def out_of_dist(dataset_name, debug=False):
         })
     elif dataset_name == "cifar10":
         cifar10_ood = out_of_dict_from_openood_for_cifar10()
+        # cifar10_ood = load_cifar10_val_and_test_data_as_ood()
+
         datasets.update({
+            
             # "SVHN": svhn_as_ood(),
             # "Cifar100": cifar100_as_ood()
             
             "SVHN": cifar10_ood["svhn"],
-            # "Cifar100": cifar10_ood["cifar100"],
-            # "Texture": cifar10_ood["texture"],
-            # "Places": cifar10_ood["places"],
-            # "MNIST": cifar10_ood["mnist"],
-            # "Tiny": cifar10_ood["tin"]
+            "Cifar100": cifar10_ood["cifar100"],
+            "Texture": cifar10_ood["texture"],
+            "Places": cifar10_ood["places"],
+            "MNIST": cifar10_ood["mnist"],
+            "Tiny": cifar10_ood["tin"]
             
             # "SVHN": cifar10_ood["svhn"].iloc[:10, :],
             # "Cifar100": cifar10_ood["cifar100"].iloc[:10, :],
@@ -595,6 +594,9 @@ def out_of_dist(dataset_name, debug=False):
             # "Places": cifar10_ood["places"].iloc[:10, :],
             # "MNIST": cifar10_ood["mnist"].iloc[:10, :],
             # "Tiny": cifar10_ood["tin"].iloc[:10, :]
+            
+            
+            # load cifar10 val and test data as ood
   
         })
     elif dataset_name == "svhn":
@@ -644,11 +646,26 @@ def out_of_dist(dataset_name, debug=False):
         #     print(datasets[dataset])
         #     print("\n")
 
-    for name in datasets.keys():
-        datasets[name]["data"] = quantize_pixels(datasets[name]["data"])
+    # for name in datasets.keys():
+    #     datasets[name]["data"] = quantize_pixels(datasets[name]["data"])
     return datasets
-<<<<<<< Updated upstream
-=======
+
+def load_cifar10_val_and_test_data_as_ood():
+    print(" data.py =>  load_cifar10_val_and_test_data_as_ood()")
+
+    sys.path.insert(
+        0, '/home/saiful/confidence-magesh_MR/confidence-magesh/OpenOOD/')
+    train_loader,val_loader, test_loader = id_dataloader_from_openood_repo_cifar10()
+    
+    print("returning Train, Val and Test Set for CIFAR10 \n")
+    ood_datasets = {
+        "cifar10 val": val_loader,
+        "cifar10 test": test_loader,
+    }
+    print("ood_datasets.keys():", ood_datasets.keys())
+    # os.chdir(old_path)
+    return ood_datasets
+
 
 def load_mnist_id_data_from_openood():
     print(" data.py =>  load_cifar10_id_data_from_openood()")
@@ -682,176 +699,31 @@ def out_of_dict_from_openood_for_mnist():
     print("ood_dict_for_mnist.keys():", ood_dict_for_mnist.keys()) #dict_keys(['val', 'nearood', 'farood'])
     print("ood_dict_for_mnist[nearood].keys():",ood_dict_for_mnist["nearood"].keys()) # dict_keys(['cifar100', 'tin'])
     print("ood_dict_for_mnist[farood].keys():",ood_dict_for_mnist["farood"].keys()) # dict_keys(['mnist', 'svhn', 'texture', 'place365'])
->>>>>>> Stashed changes
 
 
-def load_mnist_data_from_openood():
-    print(" data.py =>  load_mnist_data_from_openood()")
+    # access each dataloader
+    fashionmnist_loader = ood_dict_for_mnist['nearood']['fashionmnist']
+    notmnist_loader = ood_dict_for_mnist['nearood']['notmnist']
 
-    sys.path.insert(
-        0, '/home/saiful/confidence-magesh_MR/confidence-magesh/OpenOOD/')
+    cifar10_loader = ood_dict_for_mnist['farood']['cifar10']
+    tin_loader = ood_dict_for_mnist['farood']['tin']
+    places_loader = ood_dict_for_mnist['farood']['places365']
+    texture_loader = ood_dict_for_mnist['farood']['texture']
 
-    with open('id_train_mnist28_dataloader.pickle', 'rb') as handle:
-        train_loader = pickle.load(handle)
-    with open('id_val_mnist28_dataloader.pickle', 'rb') as handle:
-        val_loader = pickle.load(handle)
-    with open('id_test_mnist28_dataloader.pickle', 'rb') as handle:
-        test_loader = pickle.load(handle)
-
-    train_features_dict = next(iter(train_loader))
-    val_features_dict = next(iter(val_loader))
-    test_features_dict = next(iter(test_loader))
-
-    #  dict_keys(['image_name', 'data', 'data_aux', 'label', 'soft_label', 'index', 'pseudo'])
-    print("train_features_dict.keys()", train_features_dict.keys())
-    print("val_features_dict.keys()", val_features_dict.keys())
-    print("test_features_dict.keys()", test_features_dict.keys())
-
-    # torch.Size([128, 3, 32, 32])
-    train_features = train_features_dict["data"]
-    train_labels = train_features_dict["label"]  # torch.Size([128])
-
-    val_features = val_features_dict["data"]
-    val_labels = val_features_dict["label"]
-
-    test_features = test_features_dict["data"]
-    test_labels = test_features_dict["label"]
-
-    print("len(train_features):", len(train_features))
-    print("len(train_labels):", len(train_labels))
-
-    print("len(val_features):", len(val_features))
-    print("len(val_labels):", len(val_labels))
-
-    print("len(test_features):", len(test_features))
-    print("len(test_labels):", len(test_labels))
-
-    # converting to numpy
-    train_features = train_features.numpy()
-    train_features = np.moveaxis(train_features, 1, 3)  # (1000, 224, 224, 3)
-    train_labels = np.array(train_labels)
-
-    val_features = val_features.numpy()
-    val_features = np.moveaxis(val_features, 1, 3)
-    val_labels = np.array(val_labels)
-
-    test_features = test_features.numpy()
-    test_features = np.moveaxis(test_features, 1, 3)
-    test_labels = np.array(test_labels)
-
-    train = scale_and_save_in_df(train_features, train_labels, scale=False)
-    val = scale_and_save_in_df(val_features, val_labels, scale=False)
-    test = scale_and_save_in_df(test_features, test_labels, scale=False)
-    print("returning Train, Val and Test Set for mnist\n")
-    return {"Train": train, "Val": val, "Test": test}
-
-
-def out_of_dict_from_openood_for_mnist():
-    print("data.py => out_of_dict_from_openood_for_mnist")
-
-    old_path = Path.cwd()
-    os.chdir("/home/saiful/confidence-magesh_MR/confidence-magesh/OpenOOD")
-    temp_path = Path.cwd()
-    print(temp_path)
-    sys.path.insert(
-        0, '/home/saiful/confidence-magesh_MR/confidence-magesh/OpenOOD/')
-
-    with open('cifar10_loader_for_mnist28.pickle', 'rb') as handle:
-        ood_cifar10_for_mnist = pickle.load(handle)
-
-    with open('fashionmnist_loader_for_mnist28.pickle', 'rb') as handle:
-        ood_fashionmnist_for_mnist=pickle.load(handle)
-
-    with open('notmnist_loader_for_mnist28.pickle', 'rb') as handle:
-        ood_notmnist_for_mnist=pickle.load(handle)
-
-    with open('places_loader_for_mnist28.pickle', 'rb') as handle:
-        ood_places_for_mnist=pickle.load(handle)
-
-    with open('texture_loader_for_mnist28.pickle', 'rb') as handle:
-        ood_texture_for_mnist=pickle.load(handle)
-
-    with open('tin_loader_for_mnist28.pickle', 'rb') as handle:
-        ood_tin_for_mnist=pickle.load(handle)
-
-    fashionmnist_loader = ood_fashionmnist_for_mnist
-    notmnist_loader = ood_notmnist_for_mnist
-    cifar10_loader = ood_cifar10_for_mnist
-    tin_loader = ood_tin_for_mnist
-    places_loader = ood_places_for_mnist
-    texture_loader = ood_texture_for_mnist
-
-    # cifar10
-    print("\n# cifar10  from openood ")
-    cifar10_features_dict = next(iter(cifar10_loader))
-    print("cifar10_features_dict.keys():", cifar10_features_dict.keys())
-    # cifar100_imgtnsr.shape = torch.Size([128, 3, 32, 32])
-    cifar10_imgtensr = cifar10_features_dict["data"]
-    # cifar100_label.shape = torch.Size([128])
-    cifar10_label = cifar10_features_dict["label"]
-    cifar10_imgnp = cifar10_imgtensr.numpy()  # shape (128, 3, 32, 32)
-    # converting to (128, 32, 32, 3)
-    cifar10_imgnp = np.moveaxis(cifar10_imgnp, 1, 3)
-    df_cifar10 = scale_and_save_in_df(cifar10_imgnp, np.nan, scale=False)
-
-    # tin
-    print("\n# tin  from openood ")
-    tin_features_dict  = next(iter(tin_loader))
-    tin_imgtensr = tin_features_dict["data"]
-    tin_label = tin_features_dict["label"]
-    tin_imgnp= tin_imgtensr.numpy()
-    tin_imgnp = np.moveaxis(tin_imgnp, 1, 3)
-    df_tin = scale_and_save_in_df(tin_imgnp, np.nan, scale=False)
-
-    # # notmnist
-    print("\n# notmnist  from openood ")
-    notmnist_features_dict  = next(iter(notmnist_loader))
-    notmnist_imgtensr = notmnist_features_dict["data"]
-    notmnist_label = notmnist_features_dict["label"]
-    notmnist_imgnp= notmnist_imgtensr.numpy()
-    notmnist_imgnp = np.moveaxis(notmnist_imgnp, 1, 3) # mnist_imgnp.shape (128, 32, 32, 3)
-    df_notmnist = scale_and_save_in_df(notmnist_imgnp, np.nan, scale=False)
-
-    # fashionmnist
-    print("\n# fashionmnist  from openood ")
-    fashionmnist_features_dict  = next(iter(fashionmnist_loader))
-    fashionmnist_imgtensr = fashionmnist_features_dict["data"]
-    fashionmnist_label = fashionmnist_features_dict["label"]
-    fashionmnist_imgnp= fashionmnist_imgtensr.numpy()
-    fashionmnist_imgnp = np.moveaxis(fashionmnist_imgnp, 1, 3) # mnist_imgnp.shape (128, 32, 32, 3)
-    df_fashionmnist = scale_and_save_in_df(fashionmnist_imgnp, np.nan, scale=False)
-
-    # places
-    print("\n# places  from openood ")
-    places_features_dict  = next(iter(places_loader))
-    places_imgtensr = places_features_dict["data"]
-    places_label = places_features_dict["label"]
-    places_imgnp= places_imgtensr.numpy()
-    places_imgnp = np.moveaxis(places_imgnp, 1, 3)
-    df_places = scale_and_save_in_df(places_imgnp, np.nan, scale=False)
-
-    # texture
-    print("\n# texture  from openood ")
-    texture_features_dict  = next(iter(texture_loader))
-    texture_imgtensr = texture_features_dict["data"]
-    texture_label = texture_features_dict["label"]
-    texture_imgnp= texture_imgtensr.numpy()
-    texture_imgnp = np.moveaxis(texture_imgnp, 1, 3)
-    df_texture = scale_and_save_in_df(texture_imgnp, np.nan, scale=False)
-
+    
     ood_datasets = {
-        "notmnist" : df_notmnist,
-        "fashionmnist" : df_fashionmnist,
-        "cifar10": df_cifar10,
-        "tin" : df_tin ,
-        "places" : df_places,
-        "texture" : df_texture,
+        "notmnist" : notmnist_loader,
+        "fashionmnist" : fashionmnist_loader,
+        "cifar10": cifar10_loader,
+        "tin" : tin_loader ,
+        "places" : places_loader,
+        "texture" : texture_loader,
 
     }
+
     print("ood_datasets.keys():", ood_datasets.keys())
     os.chdir(old_path)
     return ood_datasets
-
 
 def load_imagenet_id_data_from_openood():
     print(" data.py =>  load_imagenet_id_data_from_openood()")
@@ -860,6 +732,10 @@ def load_imagenet_id_data_from_openood():
         0, '/home/saiful/confidence-magesh_MR/confidence-magesh/OpenOOD/')
 
     train_loader, val_loader, test_loader = id_dataloader_from_openood_repo_imagenet()
+    
+    print("returning Train, Val and Test Set for imagenet \n")
+    
+    return {"Train": train_loader, "Val": val_loader, "Test": test_loader}
     # with open('/data/saiful/imagenet_datasets2/train_loader_for_imagenet_4096_images.pickle', 'rb') as handle:
     #     train_loader = pickle.load(handle)
     # with open('val_loader_for_imagenet_320images.pickle', 'rb') as handle:
@@ -955,11 +831,45 @@ def load_imagenet_id_data_from_openood():
     # train = scale_and_save_in_df(train_features, train_labels, scale=False)
     # val = scale_and_save_in_df(val_features, val_labels, scale=False)
     # test = scale_and_save_in_df(test_features, test_labels, scale=False)
-    print("returning Train, Val and Test Set for imagenet\n")
-    return {"Train": test_features, "Val": val_loader, "Test": test_loader}
-
+    # print("returning Train, Val and Test Set for imagenet\n")
+    # return {"Train": test_features, "Val": val_loader, "Test": test_loader}
 
 def out_of_dict_from_openood_for_imagenet():
+    print("data.py => out_of_dict_from_openood_for_imagenet()")
+
+    old_path = Path.cwd()
+    os.chdir("/home/saiful/confidence-magesh_MR/confidence-magesh")
+    temp_path = Path.cwd()
+    sys.path.insert(
+        0, '/home/saiful/confidence-magesh_MR/confidence-magesh')
+
+    ood_dict_for_imagenet = ood_dataloader_from_openood_repo_imagenet()
+    
+    print("type(ood_dict_for_imagenet)  :,type(ood_dict_for_imagenet)")
+
+    print("ood_dict_for_imagenet.keys():", ood_dict_for_imagenet.keys()) #dict_keys(['val', 'nearood', 'farood'])
+    print("ood_dict_for_imagenet[nearood].keys():",ood_dict_for_imagenet["nearood"].keys()) # dict_keys(['cifar100', 'tin'])
+    print("ood_dict_for_imagenet[farood].keys():",ood_dict_for_imagenet["farood"].keys()) # dict_keys(['mnist', 'svhn', 'texture', 'place365'])
+
+    species_loader = ood_dict_for_imagenet['nearood']['species']
+    inaturalist_loader = ood_dict_for_imagenet['nearood']['inaturalist']
+    openimageo_loader = ood_dict_for_imagenet['nearood']['openimageo']
+    imageneto_loader = ood_dict_for_imagenet['nearood']['imageneto']
+    texture_loader = ood_dict_for_imagenet['farood']['texture']
+    mnist_loader = ood_dict_for_imagenet['farood']['mnist']
+    ood_datasets = {
+        "species": species_loader,
+        "openimageo": openimageo_loader,
+        "imageneto": imageneto_loader,
+        "mnist": mnist_loader,
+        "inaturalist": inaturalist_loader,
+        "texture": texture_loader
+    }
+    print("ood_datasets.keys():", ood_datasets.keys())
+    os.chdir(old_path)
+    return ood_datasets
+ 
+def out_of_dict_from_openood_for_imagenet_old():
     print("data.py => out_of_dict_from_openood_for_imagenet()")
 
     old_path = Path.cwd()
@@ -1118,68 +1028,106 @@ def load_cifar10_id_data_from_openood():
         0, '/home/saiful/confidence-magesh_MR/confidence-magesh/OpenOOD/')
     train_loader,val_loader, test_loader = id_dataloader_from_openood_repo_cifar10()
     
-    # with open('train_loader_for_cifar10.pickle', 'rb') as handle:
-    #     train_loader = pickle.load(handle)
-    # with open('val_loader_for_cifar10.pickle', 'rb') as handle:
-    #     val_loader = pickle.load(handle)
-    # with open('test_loader_for_cifar10.pickle', 'rb') as handle:
-    #     test_loader = pickle.load(handle)
-
-    # train_features_dict = next(iter(train_loader))
-    # val_features_dict = next(iter(val_loader))
-    # test_features_dict = next(iter(test_loader))
-    
-    #  dict_keys(['image_name', 'data', 'data_aux', 'label', 'soft_label', 'index', 'pseudo'])
-    # print("train_features_dict.keys()", train_features_dict.keys())
-    # print("val_features_dict.keys()", val_features_dict.keys())
-    # print("test_features_dict.keys()", test_features_dict.keys())
-
-    # torch.Size([128, 3, 32, 32])
-    # train_features = train_features_dict["data"]
-    # train_labels = train_features_dict["label"]  # torch.Size([128])
-
-    # val_features = val_features_dict["data"]
-    # val_labels = val_features_dict["label"]
-
-    # test_features = test_features_dict["data"]
-    # test_labels = test_features_dict["label"]
-
-    # print("len(train_features):", len(train_features))
-    # print("len(train_labels):", len(train_labels))
-
-    # print("len(val_features):", len(val_features))
-    # print("len(val_labels):", len(val_labels))
-
-    # print("len(test_features):", len(test_features))
-    # print("len(test_labels):", len(test_labels))
-
-    # print("This is minimum value of train_features :",torch.min(train_features))
-    # print("This is maximum value of train_features :",torch.max(train_features))
-
-    # print("This is minimum value of val_features :",torch.min(val_features))
-    # print("This is maximum value of val_features :",torch.max(val_features))
-
-    # print("This is minimum value of test_features :",torch.min(test_features))
-    # print("This is maximum value of test_features :",torch.max(test_features))
-        
-    # # converting to numpy
-    # train_features = train_features.numpy()
-    # train_features = np.moveaxis(train_features, 1, 3)  # (1000, 224, 224, 3)
-    # train_labels = np.array(train_labels)
-
-    # val_features = val_features.numpy()
-    # val_features = np.moveaxis(val_features, 1, 3)
-    # val_labels = np.array(val_labels)
-
-    # test_features = test_features.numpy()
-    # test_features = np.moveaxis(test_features, 1, 3)
-    # test_labels = np.array(test_labels)
-
-    # train = scale_and_save_in_df(train_features, train_labels, scale=False)
-    # val = scale_and_save_in_df(val_features, val_labels, scale=False)
-    # test = scale_and_save_in_df(test_features, test_labels, scale=False)
     print("returning Train, Val and Test Set for CIFAR10 \n")
     return {"Train": train_loader, "Val": val_loader, "Test": test_loader}
+
+def out_of_dict_from_openood_for_cifar10():
+    print("data.py => out_of_dict_from_openood_for_cifar10")
+
+    old_path = Path.cwd()
+    os.chdir("/home/saiful/confidence-magesh_MR/confidence-magesh/OpenOOD")
+    temp_path = Path.cwd()
+    print(temp_path)
+    sys.path.insert(
+        0, '/home/saiful/confidence-magesh_MR/confidence-magesh/OpenOOD/')
+    sys.path.insert(0, '..')
+    # loading ood data for cifar10 from openood
+    # change directory to /home/saiful/OpenOOD_framework/OpenOOD
+    # with open('/home/saiful/OpenOOD_framework/OpenOOD/ood_dataloader_for_cifar10_from_openood_bs128.pickle', 'rb') as handle:
+    #     ood_dict_for_cifar = pickle.load(handle)
+    # /home/saiful/OpenOOD_framework/OpenOOD/ood_dataloader_for_cifar10_from_openood_bs128.pickle
+
+    ##
+    ood_dict_for_cifar = ood_dataloader_from_openood_repo_cifar10()
+    
+    print("ood_dict_for_cifar.keys():", ood_dict_for_cifar.keys()) #dict_keys(['val', 'nearood', 'farood'])
+    print("ood_dict_for_cifar[nearood].keys():",ood_dict_for_cifar["nearood"].keys()) # dict_keys(['cifar100', 'tin'])
+    print("ood_dict_for_cifar[farood].keys():",ood_dict_for_cifar["farood"].keys()) # dict_keys(['mnist', 'svhn', 'texture', 'place365'])
+
+    # access each dataloader
+    cifar100_loader = ood_dict_for_cifar['nearood']['cifar100']
+    tin_loader = ood_dict_for_cifar['nearood']['tin']
+    mnist_loader = ood_dict_for_cifar['farood']['mnist']
+    svhn_loader = ood_dict_for_cifar['farood']['svhn']
+    texture_loader = ood_dict_for_cifar['farood']['texture']
+    places_loader = ood_dict_for_cifar['farood']['place365']
+    
+
+    ood_datasets = {
+        "mnist": mnist_loader,
+        "svhn": svhn_loader,
+        "cifar100": cifar100_loader,
+        "tin": tin_loader,
+        "places": places_loader,
+        "texture": texture_loader,
+    }
+    print("ood_datasets.keys():", ood_datasets.keys())
+    os.chdir(old_path)
+    return ood_datasets
+
+def load_cifar100_id_data_from_openood():
+    print(" data.py =>  load_cifar100_id_data_from_openood()")
+
+    sys.path.insert(
+        0, '/home/saiful/confidence-magesh_MR/confidence-magesh/OpenOOD/')
+    train_loader,val_loader, test_loader = id_dataloader_from_openood_repo_cifar100()
+    
+    print("returning Train, Val and Test Set for CIFAR100 \n")
+    return {"Train": train_loader, "Val": val_loader, "Test": test_loader}
+
+def out_of_dict_from_openood_for_cifar100():
+    print("data.py => out_of_dict_from_openood_for_cifar100")
+
+    old_path = Path.cwd()
+    os.chdir("/home/saiful/confidence-magesh_MR/confidence-magesh/OpenOOD")
+    temp_path = Path.cwd()
+    print(temp_path)
+    sys.path.insert(
+        0, '/home/saiful/confidence-magesh_MR/confidence-magesh/OpenOOD/')
+    sys.path.insert(0, '..')
+    # loading ood data for cifar10 from openood
+    # change directory to /home/saiful/OpenOOD_framework/OpenOOD
+    # with open('/home/saiful/OpenOOD_framework/OpenOOD/ood_dataloader_for_cifar10_from_openood_bs128.pickle', 'rb') as handle:
+    #     ood_dict_for_cifar = pickle.load(handle)
+    # /home/saiful/OpenOOD_framework/OpenOOD/ood_dataloader_for_cifar10_from_openood_bs128.pickle
+
+    ##
+    ood_dict_for_cifar = ood_dataloader_from_openood_repo_cifar100()
+    
+    print("ood_dict_for_cifar.keys():", ood_dict_for_cifar.keys()) #dict_keys(['val', 'nearood', 'farood'])
+    print("ood_dict_for_cifar[nearood].keys():",ood_dict_for_cifar["nearood"].keys()) # dict_keys(['cifar100', 'tin'])
+    print("ood_dict_for_cifar[farood].keys():",ood_dict_for_cifar["farood"].keys()) # dict_keys(['mnist', 'svhn', 'texture', 'place365'])
+
+    # access each dataloader
+    cifar10_loader = ood_dict_for_cifar['nearood']['cifar10']
+    tin_loader = ood_dict_for_cifar['nearood']['tin']
+    mnist_loader = ood_dict_for_cifar['farood']['mnist']
+    svhn_loader = ood_dict_for_cifar['farood']['svhn']
+    texture_loader = ood_dict_for_cifar['farood']['texture']
+    places_loader = ood_dict_for_cifar['farood']['places365']
+    
+
+    ood_datasets = {
+        "mnist": mnist_loader,
+        "svhn": svhn_loader,
+        "cifar10": cifar10_loader,
+        "tin": tin_loader,
+        "places": places_loader,
+        "texture": texture_loader,
+    }
+    print("ood_datasets.keys():", ood_datasets.keys())
+    os.chdir(old_path)
+    return ood_datasets
 
 def load_cifar10_id_data_from_openood2():
     print(" data.py =>  load_cifar10_id_data_from_openood()")
@@ -1251,161 +1199,9 @@ def load_cifar10_id_data_from_openood2():
     return {"Train": train, "Val": val, "Test": test}
 
 
-def out_of_dict_from_openood_for_cifar10():
-    print("data.py => out_of_dict_from_openood_for_cifar10")
-
-    old_path = Path.cwd()
-    os.chdir("/home/saiful/confidence-magesh_MR/confidence-magesh/OpenOOD")
-    temp_path = Path.cwd()
-    print(temp_path)
-    sys.path.insert(
-        0, '/home/saiful/confidence-magesh_MR/confidence-magesh/OpenOOD/')
-    sys.path.insert(0, '..')
-    # loading ood data for cifar10 from openood
-    # change directory to /home/saiful/OpenOOD_framework/OpenOOD
-    # with open('/home/saiful/OpenOOD_framework/OpenOOD/ood_dataloader_for_cifar10_from_openood_bs128.pickle', 'rb') as handle:
-    #     ood_dict_for_cifar = pickle.load(handle)
-    # /home/saiful/OpenOOD_framework/OpenOOD/ood_dataloader_for_cifar10_from_openood_bs128.pickle
-
-    ##
-    # ood_dict_for_mnist=ood_dataloader_from_openood_repo_mnist()
-
-    # with open('tin_loader_for_cifar10_id.pickle', 'rb') as handle:
-    #     ood_tin_for_cifar10 = pickle.load(handle)
-
-    # with open('places_loader_for_cifar10_id.pickle', 'rb') as handle:
-    #     ood_places_for_cifar10 = pickle.load(handle)
-
-    # with open('mnist_loader_for_cifar10_id.pickle', 'rb') as handle:
-    #     ood_mnist_for_cifar10 = pickle.load(handle)
-
-    with open('svhn_loader_for_cifar10_id.pickle', 'rb') as handle:
-        ood_svhn_for_cifar10 = pickle.load(handle)
-
-    # with open('cifar100_loader_for_cifar10_id.pickle', 'rb') as handle:
-    #     ood_cifar100_for_cifar10 = pickle.load(handle)
-
-    # with open('texture_loader_for_cifar10_id.pickle', 'rb') as handle:
-    #     ood_texture_for_cifar10 = pickle.load(handle)
-
-    ##
-    # print("ood_dict_for_cifar.keys():", ood_dict_for_mnist.keys()) #dict_keys(['val', 'nearood', 'farood'])
-    # print("ood_dict_for_mnist[nearood].keys():",ood_dict_for_mnist["nearood"].keys()) # dict_keys(['cifar100', 'tin'])
-    # print("ood_dict_for_mnist[farood].keys():",ood_dict_for_mnist["farood"].keys()) # dict_keys(['mnist', 'svhn', 'texture', 'place365'])
-
-    # access each dataloader
-
-    # fashionmnist_loader = ood_dict_for_mnist['nearood']['fashionmnist']
-    # notmnist_loader = ood_dict_for_mnist['nearood']['notmnist']
-    # cifar10_loader = ood_dict_for_mnist['farood']['cifar10']
-    # tin_loader = ood_dict_for_mnist['farood']['tin']
-    # places_loader = ood_dict_for_mnist['farood']['places365']
-    
-    svhn_loader = ood_svhn_for_cifar10
-    # mnist_loader = ood_mnist_for_cifar10
-    # cifar100_loader = ood_cifar100_for_cifar10
-    # tin_loader = ood_tin_for_cifar10
-    # places_loader = ood_places_for_cifar10
-    # texture_loader = ood_texture_for_cifar10
-
-    # # cifar10
-    # print("\n# cifar10  from openood ")
-    # cifar100_features_dict = next(iter(cifar100_loader))
-    # print("cifar10_features_dict.keys():", cifar100_features_dict.keys())
-    # # >>> cifar100_features_dict.keys(): dict_keys(['image_name', 'data', 'data_aux', 'label', 'soft_label', 'index', 'pseudo'])
-    # # cifar100_imgtnsr.shape = torch.Size([128, 3, 32, 32])
-    # cifar100_imgtensr = cifar100_features_dict["data"]
-    # # cifar100_label.shape = torch.Size([128])
-    # cifar100_label = cifar100_features_dict["label"]
-    # cifar100_imgnp = cifar100_imgtensr.numpy()  # shape (128, 3, 32, 32)
-    # # converting to (128, 32, 32, 3)
-    # cifar100_imgnp = np.moveaxis(cifar100_imgnp, 1, 3)
-    # df_cifar100 = scale_and_save_in_df(cifar100_imgnp, np.nan, scale=False)
-
-    # # tin
-    # print("\n# tin  from openood ")
-    # tin_features_dict = next(iter(tin_loader))
-    # tin_imgtensr = tin_features_dict["data"]
-    # tin_label = tin_features_dict["label"]
-    # tin_imgnp = tin_imgtensr.numpy()
-    # tin_imgnp = np.moveaxis(tin_imgnp, 1, 3)
-    # df_tin = scale_and_save_in_df(tin_imgnp, np.nan, scale=False)
-
-    # # notmnist
-    # print("\n# notmnist  from openood ")
-    # mnist_features_dict = next(iter(mnist_loader))
-    # mnist_imgtensr = mnist_features_dict["data"]
-    # mnist_label = mnist_features_dict["label"]
-    # # mnist_imgtensr = mnist_imgtensr[:2000]
-    # # mnist_label= mnist_label[:2000]
-    # mnist_imgnp = mnist_imgtensr.numpy()
-    # # mnist_imgnp.shape (128, 32, 32, 3)
-    # mnist_imgnp = np.moveaxis(mnist_imgnp, 1, 3)
-    # df_mnist = scale_and_save_in_df(mnist_imgnp, np.nan, scale=False)
-
-    # svhn
-    print("\n# svhn  from openood ")
-    svhn_features_dict = next(iter(svhn_loader))
-    svhn_imgtensr = svhn_features_dict["data"]
-    svhn_label = svhn_features_dict["label"]
-    # mnist_imgtensr = mnist_imgtensr[:2000]
-    # mnist_label= mnist_label[:2000]
-    svhn_imgnp = svhn_imgtensr.numpy()
-    # mnist_imgnp.shape (128, 32, 32, 3)
-    svhn_imgnp = np.moveaxis(svhn_imgnp, 1, 3)
-    df_svhn = scale_and_save_in_df(svhn_imgnp, np.nan, scale=False)
-
-    # # places
-    # print("\n# places  from openood ")
-    # places_features_dict = next(iter(places_loader))
-    # places_imgtensr = places_features_dict["data"]
-    # places_label = places_features_dict["label"]
-    # places_imgnp = places_imgtensr.numpy()
-    # places_imgnp = np.moveaxis(places_imgnp, 1, 3)
-    # df_places = scale_and_save_in_df(places_imgnp, np.nan, scale=False)
-
-    # # texture
-    # print("\n# texture  from openood ")
-    # texture_features_dict = next(iter(texture_loader))
-    # texture_imgtensr = texture_features_dict["data"]
-    # texture_label = texture_features_dict["label"]
-    # texture_imgnp = texture_imgtensr.numpy()
-    # texture_imgnp = np.moveaxis(texture_imgnp, 1, 3)
-    # df_texture = scale_and_save_in_df(texture_imgnp, np.nan, scale=False)
-    
-    # print("This is minimum value of cifar100_imgtensr :",torch.min(cifar100_imgtensr))
-    # print("This is maximum value of cifar100_imgtensr :",torch.max(cifar100_imgtensr))
-
-    # print("This is minimum value of tin_imgtensr :",torch.min(tin_imgtensr))
-    # print("This is maximum value of tin_imgtensr :",torch.max(tin_imgtensr))
-
-    # print("This is minimum value of mnist_imgtensr :",torch.min(mnist_imgtensr))
-    # print("This is maximum value of mnist_imgtensr :",torch.max(mnist_imgtensr))
-
-    # print("This is minimum value of svhn_imgtensr :",torch.min(svhn_imgtensr))
-    # print("This is maximum value of svhn_imgtensr :",torch.max(svhn_imgtensr))
-
-    # print("This is minimum value of places_imgtensr :",torch.min(places_imgtensr))
-    # print("This is maximum value of places_imgtensr :",torch.max(places_imgtensr))
-
-    # print("This is minimum value of texture_imgtensr :",torch.min(texture_imgtensr))
-    # print("This is maximum value of texture_imgtensr :",torch.max(texture_imgtensr))
-
-    ood_datasets = {
-        # "mnist": df_mnist,
-        "svhn": df_svhn,
-        # "cifar100": df_cifar100,
-        # "tin": df_tin,
-        # "places": df_places,
-        # "texture": df_texture,
-
-    }
-    print("ood_datasets.keys():", ood_datasets.keys())
-    os.chdir(old_path)
-    return ood_datasets
 
 
-def load_cifar100_id_data_from_openood():
+def load_cifar100_id_data_from_openood_pickle():
     print(" data.py =>  load_cifar100_id_data_from_openood()")
     from os import chdir
     old_path = Path.cwd()
@@ -1485,7 +1281,7 @@ def load_cifar100_id_data_from_openood():
     return {"Train": train, "Val": val, "Test": test}
 
 
-def out_of_dict_from_openood_for_cifar100():
+def out_of_dict_from_openood_for_cifar100_pickle():
     print("data.py => out_of_dict_from_openood_for_cifar100()")
 
     old_path = Path.cwd()
