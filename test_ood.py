@@ -21,6 +21,7 @@ import seaborn as sns
 from matplotlib import pyplot as plt2
 import pickle
 import time
+from scipy import stats
 
 
 def convert_seconds(seconds):
@@ -51,7 +52,7 @@ def taylor_scores(in_dist, out_dist):
 
 
 class FeatureTester: 
-    def __init__(self, dataset: str, model: str, feature_model, name=""):
+    def __init__(self, dataset: str, model: str, feature_model, name="", mahala_xood, knn_pen):
         print("\n\n-------------test_ood.py ==> FeatureTester-------------")
         self.ood = {}
         self.dataset = dataset
@@ -89,19 +90,21 @@ class FeatureTester:
             if feature_model == "mahala":
                 print("It is goign in mahala")
                 print("running set  :",name)
-                # self.data[name] = self.conf.add_prediction_and_penultimate_features_dl_to_mahala(
-                #     self.data[name])
-                self.data[name] = self.conf.add_prediction_and_features_dl(
-                    self.data[name]) # name = Train, Test, Val 
+                if not mahala_xood: 
+                    self.data[name] = self.conf.add_prediction_and_penultimate_features_dl_to_mahala(self.data[name])
+                else:
+                    self.data[name] = self.conf.add_prediction_and_features_dl(
+                        self.data[name]) # name = Train, Test, Val 
 
                 
             elif feature_model == "knn":
                 print("ELSE PART IS GETTING EXECUTED")
                 print("running set  :",name)
-                self.data[name] = self.conf.add_prediction_and_features_knn(
-                    self.data[name])
-                # self.data[name] = self.conf.add_prediction_and_extreme_features_dl_to_knn(
-                #     self.data[name])
+                if not knn_pen:
+                    self.data[name] = self.conf.add_prediction_and_features_knn(
+                        self.data[name])
+                else:
+                    self.data[name] = self.conf.add_prediction_and_extreme_features_dl_to_knn(self.data[name])
                 print("knn extreme feature shape: ", self.data[name].shape)
                 
             else:
@@ -124,18 +127,21 @@ class FeatureTester:
                 
         print("\n\n  ##  Creating Out-Of-Distribution Sets  ##  ", flush=True)
         if feature_model == "mahala":
-            print("It is goign in mahala")
-            # self.ood = {name: self.conf.add_prediction_and_penultimate_features_dl_to_mahala(
-            #     df) for name, df in out_of_dist(self.dataset).items()}
-            self.ood = {name: self.conf.add_prediction_and_features_dl(
-                df) for name, df in out_of_dist(self.dataset).items()}
+            print("OOD Data Collection For Mahala:")
+            if not mahala_xood:
+                self.ood = {name: self.conf.add_prediction_and_penultimate_features_dl_to_mahala(
+                    df) for name, df in out_of_dist(self.dataset).items()}
+            else:
+                self.ood = {name: self.conf.add_prediction_and_features_dl(
+                    df) for name, df in out_of_dist(self.dataset).items()}
             
         elif feature_model == "knn":
-            print("It is goign in knn")
-            self.ood = {name: self.conf.add_prediction_and_features_knn(
-                df) for name, df in out_of_dist(self.dataset).items()}
-            # self.ood = {name: self.conf.add_prediction_and_extreme_features_dl_to_knn(
-            #     df) for name, df in out_of_dist(self.dataset).items()}
+            print("OOD Data Collection For KNN:")
+            if knn_pen:
+                self.ood = {name: self.conf.add_prediction_and_features_knn(
+                    df) for name, df in out_of_dist(self.dataset).items()}
+            else:
+                self.ood = {name: self.conf.add_prediction_and_extreme_features_dl_to_knn(df) for name, df in out_of_dist(self.dataset).items()}
             
         else:
             for name, df in out_of_dist(self.dataset).items():
@@ -146,9 +152,6 @@ class FeatureTester:
              #   df) for name, df in out_of_dist(self.dataset).items()}
             #self.ood = {name: self.conf.add_prediction_and_extreme_features_dl_to_knn(
              #   df) for name, df in out_of_dist(self.dataset).items()}
-            
-        #self.ood = {name: self.conf.add_prediction_and_features(df) for name, df in out_of_dist(self.dataset).items()}
-        #self.ood = {name: df for name, df in out_of_dist(self.dataset).items()}
         print("Length of ood: ", self.ood.keys())
         # self.cal = None  # Training set for the logistic regression.
 
@@ -169,16 +172,8 @@ class FeatureTester:
     def create_summary_combine(self, f, name="", corr=False):
         print("\n\ntest_ood.py ==> FeatureTester.create_summary_combine()")
         print("Creating Taylor Table", flush=True)
-        # print(self.ood.keys())
-        # for f in ["ft.conf.predict_mahala", "ft.conf.predict_knn"]:
-            
             
         pred = {name: f(df) for name, df in self.ood.items()}
-        #    pred_values[f] = pred
-        #    pred_clean = f(self.data["Test"], isInTest=True)
-        #    pred_clean_values[f] = pred_clean
-        #pred_clean = f(self.testset_data, isInTest=True)
-        
         pred_clean = f(self.data["Test"])
         return pred, pred_clean
 
@@ -217,13 +212,6 @@ class FeatureTester:
         print("test_ood.py ==> FeatureTester.create_summary()")
         print("Creating Taylor Table", flush=True)
         print(self.ood.keys())
-        # for f in ["ft.conf.predict_mahala", "ft.conf.predict_knn"]:
-        #   pred = {name: f(df) for name, df in self.ood.items()}
-        #  pred_values[f] = pred
-        #    pred_clean = f(self.data["Test"], isInTest=True)
-        #    pred_clean_values[f] = pred_clean
-        #pred_clean = f(self.testset_data, isInTest=True)
-        #pred_clean = f(self.data["Test"], isInTest=True)
 
         all = np.concatenate(list(pred.values()) + [pred_clean])
         print(all)
@@ -294,17 +282,6 @@ class FeatureTester:
 
     def fit_knn(self, test: bool, c=None):
         print("test_ood.py ==> FeatureTester.fit_knn()")
-        """if test:
-            #self.cal = {value : self.data[i] for i in ["Train", "Val"]}
-            self.cal = self.load_cal_data()
-            print("Keys: ", self.cal.keys())
-            print("Fitting KNN ", flush=True)
-            self.conf.fit_knn(self.cal, c=c)
-        else:
-            if not self.cal:
-                print("Creating Calibration Set", flush=True)
-                self.cal = calibration(self.data["Val"])
-            print("Fitting KNN Regression", flush=True)"""
         self.conf.fit_knn_faiss(self.data["Train"], c=c)
 
     def fit(self, c=None, new_cal_set=False):
@@ -364,7 +341,6 @@ class FeatureTester:
 
 def log_probability_original(pred_mahala, pred_knn, n):
     print("test_ood.py ==> log_probability()")
-    # n = 2048 #512
     if isinstance(pred_mahala, dict):
         result = {name: ((-n * (np.log(-(pred_knn[name])))) - (pred_mahala[name] ** 2)) for name, df in pred_mahala.items()}
     else:
@@ -372,7 +348,6 @@ def log_probability_original(pred_mahala, pred_knn, n):
     return result
 
 def normalized_log_probability_original(pred_mahala, pred_knn, mahala_mean, knn_mean, mahala_std, knn_std, n):
-    # n = 2048 #512
     if isinstance(pred_mahala, dict):
         pred_mahala_result = {name: - (pred_mahala[name] ** 2) for name, df in pred_mahala.items()}
         pred_knn_result = {name: (-n * np.log(-pred_knn[name])) for name, df in pred_mahala.items()}
@@ -396,7 +371,6 @@ def square_log_probability_original(pred_mahala, pred_knn, n):
 
 def log_probability(pred_mahala, pred_knn, n):
     print("test_ood.py ==> log_probability()")
-    # n = 2048 #512
     if isinstance(pred_mahala, dict):
         result = {name: ((-n * (np.log(-(pred_knn[name]), where = -(pred_knn[name]) > 0.0))) - (pred_mahala[name] ** 2)) for name, df in pred_mahala.items()}
     else:
@@ -404,7 +378,6 @@ def log_probability(pred_mahala, pred_knn, n):
     return result
 
 def normalized_log_probability(pred_mahala, pred_knn, mahala_mean, knn_mean, mahala_std, knn_std, n):
-    # n = 2048 #512
     if isinstance(pred_mahala, dict):
         pred_mahala_result = {name: - (pred_mahala[name] ** 2) for name, df in pred_mahala.items()}
         pred_knn_result = {name: (-n * (np.log(-(pred_knn[name]), where = -(pred_knn[name]) > 0.0))) for name, df in pred_mahala.items()}
@@ -479,6 +452,9 @@ def hist_plot_mahala_knn(pred_mahala, pred_knn, method_name):
         plt.savefig(f"save_histogram_{method_name}_{str(key)}.png")
     return result
 
+def pearson_coefficient(a, b):
+    return stats.pearsonr(a, b)
+
 
 def test_ood(dataset, model, alpha):
     print("test_ood.py ==> test_ood()")
@@ -490,19 +466,35 @@ def test_ood(dataset, model, alpha):
 
     # ft_mahala -> this will be in mahala
     # FeatureTester__init__(self, dataset: str, model: str, feature_model, folder_name=""
-    ft_mahala = FeatureTester(dataset, model, "mahala", "knn")
-    pred_mahala, pred_clean_mahala = ft_mahala.create_summary_combine(
-        ft_mahala.conf.predict_mahala, "x-ood-mahala")
-    ft_mahala.taylor_table(pred_mahala, pred_clean_mahala,
+    print("Calculating Mahala with Extreme values..")
+    ft_mahala_xood = FeatureTester(dataset, model, "mahala", "knn", extreme=True, pen=False)
+    pred_mahala_xood, pred_clean_mahala_xood = ft_mahala_xood.create_summary_combine(
+        ft_mahala_xood.conf.predict_mahala, "x-ood-mahala")
+    ft_mahala_xood.taylor_table(pred_mahala_xood, pred_clean_mahala_xood,
                             "x-ood-mahala-extreme-" + str(alpha), "mahala")
 
 
-    # ft_knn - > this will be in KNN
-    ft_knn = FeatureTester(dataset, model, "knn", "knn")
-    ft_knn.fit_knn(test=False)
-    pred_knn, pred_clean_knn = ft_knn.create_summary_combine(
-        ft_knn.conf.predict_knn_faiss, "open-ood-knn")
-    ft_knn.taylor_table(pred_knn, pred_clean_knn, "knn-penultimate-features-" + str(alpha), "knn")
+    print("Calculating KNN with Penultimate layer values..")
+    ft_knn_pen = FeatureTester(dataset, model, "knn", "knn", extreme=False, pen=True)
+    ft_knn_pen.fit_knn(test=False)
+    pred_knn_pen, pred_clean_knn_pen = ft_knn_pen.create_summary_combine(
+        ft_knn_pen.conf.predict_knn_faiss, "open-ood-knn")
+    ft_knn_pen.taylor_table(pred_knn_pen, pred_clean_knn_pen, "knn-penultimate-features-" + str(alpha), "knn")
+
+    print("Calculating Mahala with Penultimate layer values..")
+    ft_mahala_pen = FeatureTester(dataset, model, "mahala", "knn", extreme=False, pen=True)
+    pred_mahala_pen, pred_clean_mahala_pen = ft_mahala_pen.create_summary_combine(
+        ft_mahala_pen.conf.predict_mahala, "x-ood-mahala")
+    ft_mahala_pen.taylor_table(pred_mahala_pen, pred_clean_mahala_pen,
+                            "mahala-penultimate-" + str(alpha), "mahala")
+
+    print("Calculating KNN with Extreme values..")
+    ft_knn_xood = FeatureTester(dataset, model, "knn", "knn", extreme=True, pen=False)
+    ft_knn_xood.fit_knn(test=False)
+    pred_knn_xood, pred_clean_knn_xood = ft_knn_xood.create_summary_combine(
+        ft_knn_xood.conf.predict_knn_faiss, "open-ood-knn")
+    ft_knn_xood.taylor_table(pred_knn_xood, pred_clean_knn_xood, "knn-extreme-features-" + str(alpha), "knn")
+
     # if (np.isnan(pred_knn)== True):
     # if (pd.isna(pred_knn)== True):
         
@@ -529,63 +521,151 @@ def test_ood(dataset, model, alpha):
     # ft_knn.taylor_table(pred_geo, pred_clean_geo, "x-ood-mahala-knn-geo-" + str(alpha),"geometric_mean")
    
  
-    print(f" pred_mahala 2.51 : {pred_mahala}")
-    print(f" pred_knn 2.51: {pred_knn}")
+    # print(f" pred_mahala 2.51 : {pred_mahala}")
+    # print(f" pred_knn 2.51: {pred_knn}")
     
-    print(f" pred_clean_mahala 2.52: {pred_clean_mahala}")
-    print(f" pred_clean_knn 2.52: {pred_clean_knn}")
+    # print(f" pred_clean_mahala 2.52: {pred_clean_mahala}")
+    # print(f" pred_clean_knn 2.52: {pred_clean_knn}")
     
-    with open('pred_mahala_docu.pickle', 'wb') as handle:
-        pickle.dump(pred_mahala, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    with open('pred_mahala_xood_'+str(dataset)+'_.pickle', 'wb') as handle:
+        pickle.dump(pred_mahala_xood, handle, protocol=pickle.HIGHEST_PROTOCOL)
         
-    with open('pred_knn_docu.pickle', 'wb') as handle:
-        pickle.dump(pred_knn, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    with open('pred_knn_pen_'+str(dataset)+'_.pickle', 'wb') as handle:
+        pickle.dump(pred_knn_pen, handle, protocol=pickle.HIGHEST_PROTOCOL)
             
-    with open('pred_clean_mahala_docu.pickle', 'wb') as handle:
-        pickle.dump(pred_clean_mahala, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    with open('pred_clean_mahala_xood_'+str(dataset)+'_.pickle', 'wb') as handle:
+        pickle.dump(pred_clean_mahala_xood, handle, protocol=pickle.HIGHEST_PROTOCOL)
         
-    with open('pred_clean_knn_docu.pickle', 'wb') as handle:
-        pickle.dump(pred_clean_knn, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    with open('pred_clean_knn_pen_'+str(dataset)+'_.pickle', 'wb') as handle:
+        pickle.dump(pred_clean_knn_pen, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+    # print(f" pred_mahala 2.51 : {pred_mahala}")
+    # print(f" pred_knn 2.51: {pred_knn}")
+    
+    # print(f" pred_clean_mahala 2.52: {pred_clean_mahala}")
+    # print(f" pred_clean_knn 2.52: {pred_clean_knn}")
+    
+    with open('pred_mahala_pen_'+str(dataset)+'_.pickle', 'wb') as handle:
+        pickle.dump(pred_mahala_pen, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        
+    with open('pred_knn_xood_'+str(dataset)+'_.pickle', 'wb') as handle:
+        pickle.dump(pred_knn_xood, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            
+    with open('pred_clean_mahala_pen_'+str(dataset)+'_.pickle', 'wb') as handle:
+        pickle.dump(pred_clean_mahala_pen, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        
+    with open('pred_clean_knn_xood_'+str(dataset)+'_.pickle', 'wb') as handle:
+        pickle.dump(pred_clean_knn_xood, handle, protocol=pickle.HIGHEST_PROTOCOL)
                 
 
 
-    # # log probabilty
-    # pred_log = log_probability(pred_mahala, pred_knn, ft_knn.conf.knn_n)
-    # pred_clean_log = log_probability(pred_clean_mahala, pred_clean_knn,ft_knn.conf.knn_n)
-    # ft_knn.taylor_table(pred_log, pred_clean_log, "x-ood-mahala-knn-log", "log_probability" )
+    # Mahala xood + KNN pen log probabilty
+    pred_log_m_xood_knn_pen = log_probability(pred_mahala_xood, pred_knn_pen, ft_knn_pen.conf.knn_n)
+    pred_clean_log_m_xood_knn_pen = log_probability(pred_clean_mahala_xood, pred_clean_knn_pen,ft_knn_pen.conf.knn_n)
+    ft_knn_pen.taylor_table(pred_log_m_xood_knn_pen, pred_clean_log_m_xood_knn_pen, "xood-mahala-pen-knn-log", "log_probability" )
+
+    # Mahala Pen + KNN pen log probabilty
+    pred_log_m_pen_knn_pen = log_probability(pred_mahala_pen, pred_knn_pen, ft_knn_pen.conf.knn_n)
+    pred_clean_log_m_pen_knn_pen = log_probability(pred_clean_mahala_pen, pred_clean_knn_pen,ft_knn_pen.conf.knn_n)
+    ft_knn_pen.taylor_table(pred_log_m_pen_knn_pen, pred_clean_log_m_pen_knn_pen, "pen-mahala-pen-knn-log", "log_probability" )
+
+    # Mahala xood + KNN Xood log probabilty
+    pred_log_m_xood_knn_xood = log_probability(pred_mahala_xood, pred_knn_xood, ft_knn_xood.conf.knn_n)
+    pred_clean_log_m_xood_knn_xood = log_probability(pred_clean_mahala_xood, pred_clean_knn_xood,ft_knn_xood.conf.knn_n)
+    ft_knn_xood.taylor_table(pred_log_m_xood_knn_xood, pred_clean_log_m_xood_knn_xood, "xood-mahala-xood-knn-log", "log_probability" )
+
+    # Mahala pen + KNN xood log probabilty
+    pred_log_m_pen_knn_xood = log_probability(pred_mahala_pen, pred_knn_xood, ft_knn_xood.conf.knn_n)
+    pred_clean_log_m_pen_knn_xood = log_probability(pred_clean_mahala_pen, pred_clean_knn_xood,ft_knn_xood.conf.knn_n)
+    ft_knn_xood.taylor_table(pred_log_m_pen_knn_xood, pred_clean_log_m_pen_knn_xood, "pen-mahala-xood-knn-log", "log_probability" )
     
-    # # square log probabilty  
-    # pred_sq_log = square_log_probability(pred_mahala, pred_knn, ft_knn.conf.knn_n)
-    # pred_clean_sq_log = square_log_probability(pred_clean_mahala, pred_clean_knn, ft_knn.conf.knn_n)
-    # ft_knn.taylor_table(pred_sq_log, pred_clean_sq_log, "x-ood-mahala-knn-log-sq", "square_log_probability")
-    
-    # normalized_log_probability
-    pred_n_log = normalized_log_probability(pred_mahala, pred_knn,
-            ft_mahala.conf.mahala_mean, ft_knn.conf.knn_mean, ft_mahala.conf.mahala_std, ft_knn.conf.knn_std, ft_knn.conf.knn_n)
-    pred_n_clean_log = normalized_log_probability(pred_clean_mahala, pred_clean_knn, 
-            ft_mahala.conf.mahala_mean, ft_knn.conf.knn_mean, ft_mahala.conf.mahala_std, ft_knn.conf.knn_std, ft_knn.conf.knn_n)
-    ft_knn.taylor_table(pred_n_log, pred_n_clean_log, "x-ood-mahala-knn-n-log","normalized_log_probability")
-    
-    
-    # # max_distance
-    # pred_max = max_distance(pred_mahala, pred_knn, 
-    #         ft_mahala.conf.mahala_max_mean, ft_knn.conf.knn_max_mean, ft_mahala.conf.mahala_max_std, ft_knn.conf.knn_max_std)
-    # pred_clean_max = max_distance(pred_clean_mahala, pred_clean_knn, 
-    #         ft_mahala.conf.mahala_max_mean, ft_knn.conf.knn_max_mean, ft_mahala.conf.mahala_max_std, ft_knn.conf.knn_max_std)
-    # ft_knn.taylor_table(pred_max, pred_clean_max, "x-ood-mahala-knn-max-","mahala_max_mean" )
+    # Mahala xood + KNN pen square log probabilty  
+    pred_sq_log_m_xood_knn_pen = square_log_probability(pred_mahala_xood, pred_knn_pen, ft_knn_pen.conf.knn_n)
+    pred_clean_sq_log_m_xood_knn_pen = square_log_probability(pred_clean_mahala_xood, pred_clean_knn_pen, ft_knn_pen.conf.knn_n)
+    ft_knn_pen.taylor_table(pred_sq_log_m_xood_knn_pen, pred_clean_sq_log_m_xood_knn_pen, "x-ood-mahala-knn-log-sq", "square_log_probability")
+
+    # Mahala Pen + KNN pen square log probabilty  
+    pred_sq_log_m_pen_knn_pen = square_log_probability(pred_mahala_pen, pred_knn_pen, ft_knn_pen.conf.knn_n)
+    pred_clean_sq_log_m_pen_knn_pen = square_log_probability(pred_clean_mahala_pen, pred_clean_knn_pen, ft_knn_pen.conf.knn_n)
+    ft_knn_pen.taylor_table(pred_sq_log_m_pen_knn_pen, pred_clean_sq_log_m_pen_knn_pen, "x-ood-mahala-knn-log-sq", "square_log_probability")
+
+    # Mahala xood + KNN Xood square log probabilty  
+    pred_sq_log_m_xood_knn_xood = square_log_probability(pred_mahala_xood, pred_knn_xood, ft_knn_xood.conf.knn_n)
+    pred_clean_sq_log_m_xood_knn_xood = square_log_probability(pred_clean_mahala_xood, pred_clean_knn_xood, ft_knn_xood.conf.knn_n)
+    ft_knn_xood.taylor_table(pred_sq_log_m_xood_knn_xood, pred_clean_sq_log_m_xood_knn_xood, "x-ood-mahala-knn-log-sq", "square_log_probability")
+
+    # Mahala pen + KNN xood square log probabilty  
+    pred_sq_log_m_pen_knn_xood = square_log_probability(pred_mahala_pen, pred_knn_xood, ft_knn_xood.conf.knn_n)
+    pred_clean_sq_log_m_pen_knn_xood = square_log_probability(pred_clean_mahala_pen, pred_clean_knn_xood, ft_knn_xood.conf.knn_n)
+    ft_knn_xood.taylor_table(pred_sq_log_m_pen_knn_xood, pred_clean_sq_log_m_pen_knn_xood, "x-ood-mahala-knn-log-sq", "square_log_probability")
 
 
-    # ft_knn_comb = FeatureTester(dataset, model, "", "combine")
-    # ft_knn_comb.fit_knn(test=False)
-    # pred_knn, pred_clean_knn = ft_knn_comb.create_summary_combine(
-    #     ft_knn_comb.conf.predict_knn_faiss, "open-ood-knn")
-    # ft_knn_comb.taylor_table(pred_knn, pred_clean_knn, "knn-mahala-feat-combine-algo-knn" + str(alpha), "combine")
+    # Mahala xood + KNN pen normalized_log_probability
+    pred_n_log_m_xood_knn_pen = normalized_log_probability(pred_mahala_xood, pred_knn_pen,
+            ft_mahala_xood.conf.mahala_mean, ft_knn_pen.conf.knn_mean, ft_mahala_xood.conf.mahala_std, ft_knn_pen.conf.knn_std, ft_knn_pen.conf.knn_n)
+    pred_n_clean_log_m_xood_knn_pen = normalized_log_probability(pred_clean_mahala_xood, pred_clean_knn_pen, 
+            ft_mahala_xood.conf.mahala_mean, ft_knn_pen.conf.knn_mean, ft_mahala_xood.conf.mahala_std, ft_knn_pen.conf.knn_std, ft_knn.conf.knn_n)
+    ft_knn_pen.taylor_table(pred_n_log_m_xood_knn_pen, pred_n_clean_log_m_xood_knn_pen, "x-ood-mahala-knn-n-log","normalized_log_probability")
     
-    # ft_mahala_comb = FeatureTester(dataset, model, "", "combine")
-    # pred_mahala, pred_clean_mahala = ft_mahala_comb.create_summary_combine(
-    #     ft_mahala_comb.conf.predict_comb_mahala, "x-ood-mahala")
-    # ft_mahala_comb.taylor_table(pred_mahala, pred_clean_mahala,
-    #                         "knn-mahala-feat-combine-algo-mahalanobis" + str(alpha), "mahala")
+    # Mahala Pen + KNN pen normalized_log_probability
+    pred_n_log_m_pen_knn_pen = normalized_log_probability(pred_mahala_pen, pred_knn_pen,
+            ft_mahala_pen.conf.mahala_mean, ft_knn_pen.conf.knn_mean, ft_mahala_pen.conf.mahala_std, ft_knn_pen.conf.knn_std, ft_knn_pen.conf.knn_n)
+    pred_n_clean_log_m_pen_knn_pen = normalized_log_probability(pred_clean_mahala_pen, pred_clean_knn_pen, 
+            ft_mahala_pen.conf.mahala_mean, ft_knn_pen.conf.knn_mean, ft_mahala_pen.conf.mahala_std, ft_knn_pen.conf.knn_std, ft_knn_pen.conf.knn_n)
+    ft_knn_pen.taylor_table(pred_n_log_m_pen_knn_pen, pred_n_clean_log_m_pen_knn_pen, "x-ood-mahala-knn-n-log","normalized_log_probability")
+    
+    # Mahala xood + KNN Xood normalized_log_probability
+    pred_n_log_m_xood_knn_xood = normalized_log_probability(pred_mahala_xood, pred_knn_xood,
+            ft_mahala_xood.conf.mahala_mean, ft_knn_xood.conf.knn_mean, ft_mahala_xood.conf.mahala_std, ft_knn_xood.conf.knn_std, ft_knn_xood.conf.knn_n)
+    pred_n_clean_log_m_xood_knn_xood = normalized_log_probability(pred_clean_mahala_xood, pred_clean_knn_xood, 
+            ft_mahala_xood.conf.mahala_mean, ft_knn_xood.conf.knn_mean, ft_mahala_xood.conf.mahala_std, ft_knn_xood.conf.knn_std, ft_knn_xood.conf.knn_n)
+    ft_knn_xood.taylor_table(pred_n_log_m_xood_knn_xood, pred_n_clean_log_m_xood_knn_xood, "x-ood-mahala-knn-n-log","normalized_log_probability")
+    
+    # Mahala Pen + KNN xood normalized_log_probability
+    pred_n_log_m_pen_knn_xood = normalized_log_probability(pred_mahala_pen, pred_knn_xood,
+            ft_mahala_pen.conf.mahala_mean, ft_knn_xood.conf.knn_mean, ft_mahala_pen.conf.mahala_std, ft_knn_xood.conf.knn_std, ft_knn_xood.conf.knn_n)
+    pred_n_clean_log_m_pen_knn_xood = normalized_log_probability(pred_clean_mahala_pen, pred_clean_knn_xood, 
+            ft_mahala_pen.conf.mahala_mean, ft_knn_xood.conf.knn_mean, ft_mahala_pen.conf.mahala_std, ft_knn_xood.conf.knn_std, ft_knn_xood.conf.knn_n)
+    ft_knn_xood.taylor_table(pred_n_log_m_pen_knn_xood, pred_n_clean_log_m_pen_knn_xood, "x-ood-mahala-knn-n-log","normalized_log_probability")
+    
+    
+    if isinstance(pred_mahala_xood, dict):
+        for key in pred_mahala_xood.keys():
+            print("Dataset for Mahala Extreme Values: ", key)
+            print("Mahala Xood + Knn Pen : Log Probability - Pearson Coefficient value: ", pearson_coefficient(pred_mahala_xood[key], pred_log_m_xood_knn_pen[key]))
+            print("Mahala Pen + KNN pen : Log Probability - Pearson Coefficient value: ", pearson_coefficient(pred_mahala_xood[key], pred_log_m_pen_knn_pen[key]))
+            print("Mahala xood + KNN Xood : Log Probability - Pearson Coefficient value: ", pearson_coefficient(pred_mahala_xood[key], pred_log_m_xood_knn_xood[key]))
+            print("Mahala Pen + KNN xood : Log Probability - Pearson Coefficient value: ", pearson_coefficient(pred_mahala_xood[key], pred_log_m_pen_knn_xood[key]))
+            print("Mahala Xood + Knn Pen : Sq Log Probability - Pearson Coefficient value: ", pearson_coefficient(pred_mahala_xood[key], pred_sq_log_m_xood_knn_pen[key]))
+            print("Mahala Pen + Knn Pen : Sq Log Probability - Pearson Coefficient value: ", pearson_coefficient(pred_mahala_xood[key], pred_sq_log_m_pen_knn_pen[key]))
+            print("Mahala Xood + Knn Xood : Sq Log Probability - Pearson Coefficient value: ", pearson_coefficient(pred_mahala_xood[key], pred_sq_log_m_xood_knn_xood[key]))
+            print("Mahala Pen + Knn Xood : Sq Log Probability - Pearson Coefficient value: ", pearson_coefficient(pred_mahala_xood[key], pred_sq_log_m_pen_knn_xood[key]))
+            print("Mahala Xood + Knn Pen : N - Log Probability - Pearson Coefficient value: ", pearson_coefficient(pred_mahala_xood[key], pred_n_log_m_xood_knn_pen[key]))
+            print("Mahala Pen + Knn Pen : N - Log Probability - Pearson Coefficient value: ", pearson_coefficient(pred_mahala_xood[key], pred_n_log_m_pen_knn_pen[key]))
+            print("Mahala Xood + Knn Xood : N - Log Probability - Pearson Coefficient value: ", pearson_coefficient(pred_mahala_xood[key], pred_n_log_m_xood_knn_xood[key]))
+            print("Mahala Pen + Knn Xood : N - Log Probability - Pearson Coefficient value: ", pearson_coefficient(pred_mahala_xood[key], pred_n_log_m_pen_knn_xood[key]))
+            print("<<<<<<<<==================================================================================>>>>>>>")
+    
+
+    if isinstance(pred_knn_pen, dict):
+        for key in pred_knn_pen.keys():
+            print("Dataset for KNN Penultimate Layer: ", key)
+            print("Mahala Xood + Knn Pen : Log Probability - Pearson Coefficient value: ", pearson_coefficient(pred_knn_pen[key], pred_log_m_xood_knn_pen[key]))
+            print("Mahala Pen + KNN pen : Log Probability - Pearson Coefficient value: ", pearson_coefficient(pred_knn_pen[key], pred_log_m_pen_knn_pen[key]))
+            print("Mahala xood + KNN Xood : Log Probability - Pearson Coefficient value: ", pearson_coefficient(pred_knn_pen[key], pred_log_m_xood_knn_xood[key]))
+            print("Mahala Pen + KNN xood : Log Probability - Pearson Coefficient value: ", pearson_coefficient(pred_knn_pen[key], pred_log_m_pen_knn_xood[key]))
+            print("Mahala Xood + Knn Pen : Sq Log Probability - Pearson Coefficient value: ", pearson_coefficient(pred_knn_pen[key], pred_sq_log_m_xood_knn_pen[key]))
+            print("Mahala Pen + Knn Pen : Sq Log Probability - Pearson Coefficient value: ", pearson_coefficient(pred_knn_pen[key], pred_sq_log_m_pen_knn_pen[key]))
+            print("Mahala Xood + Knn Xood : Sq Log Probability - Pearson Coefficient value: ", pearson_coefficient(pred_knn_pen[key], pred_sq_log_m_xood_knn_xood[key]))
+            print("Mahala Pen + Knn Xood : Sq Log Probability - Pearson Coefficient value: ", pearson_coefficient(pred_knn_pen[key], pred_sq_log_m_pen_knn_xood[key]))
+            print("Mahala Xood + Knn Pen : N - Log Probability - Pearson Coefficient value: ", pearson_coefficient(pred_knn_pen[key], pred_n_log_m_xood_knn_pen[key]))
+            print("Mahala Pen + Knn Pen : N - Log Probability - Pearson Coefficient value: ", pearson_coefficient(pred_knn_pen[key], pred_n_log_m_pen_knn_pen[key]))
+            print("Mahala Xood + Knn Xood : N - Log Probability - Pearson Coefficient value: ", pearson_coefficient(pred_knn_pen[key], pred_n_log_m_xood_knn_xood[key]))
+            print("Mahala Pen + Knn Xood : N - Log Probability - Pearson Coefficient value: ", pearson_coefficient(pred_knn_pen[key], pred_n_log_m_pen_knn_xood[key]))
+            print("<<<<<<<<==================================================================================>>>>>>>")
+
+
+    
 
     # ft_mahala.create_summary_combine(ft_mahala.conf.softmax, "baseline")
     # ft.create_summary(ft.conf.energy, "energy")
