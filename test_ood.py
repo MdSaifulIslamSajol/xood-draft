@@ -52,10 +52,14 @@ def taylor_scores(in_dist, out_dist):
 
 
 class FeatureTester: 
+<<<<<<< HEAD
     # def __init__(self, mahala_xood, knn_pen, dataset: str, model: str, feature_model, name="", mahala_xood, knn_pen):
     def __init__(self,dataset: str, model: str, feature_model, name="", extreme= True, pen= True):
         mahala_xood = extreme
         knn_pen = pen
+=======
+    def __init__(self, dataset: str, model: str, feature_model, name="", mahala_xood, knn_pen):
+>>>>>>> eaa8526f41b56480c0a7721efd6101115e28f730
         print("\n\n-------------test_ood.py ==> FeatureTester-------------")
         self.ood = {}
         self.dataset = dataset
@@ -103,8 +107,12 @@ class FeatureTester:
             elif feature_model == "knn":
                 print("KNN PART IS GETTING EXECUTED")
                 print("running set  :",name)
+<<<<<<< HEAD
                 # if not knn_pen:
                 if  knn_pen:
+=======
+                if not knn_pen:
+>>>>>>> eaa8526f41b56480c0a7721efd6101115e28f730
                     self.data[name] = self.conf.add_prediction_and_features_knn(
                         self.data[name])
                 else:
@@ -137,8 +145,11 @@ class FeatureTester:
         if feature_model == "mahala":
             print("OOD Data Collection For Mahala:")
             if not mahala_xood:
+<<<<<<< HEAD
             # if mahala_xood:
 
+=======
+>>>>>>> eaa8526f41b56480c0a7721efd6101115e28f730
                 self.ood = {name: self.conf.add_prediction_and_penultimate_features_dl_to_mahala(
                     df) for name, df in out_of_dist(self.dataset).items()}
             else:
@@ -476,7 +487,11 @@ def test_ood(dataset, model, alpha):
 
     # ft_mahala -> this will be in mahala
     # FeatureTester__init__(self, dataset: str, model: str, feature_model, folder_name=""
+<<<<<<< HEAD
     print("\n\n==> Calculating Mahala with Extreme values..")
+=======
+    print("Calculating Mahala with Extreme values..")
+>>>>>>> eaa8526f41b56480c0a7721efd6101115e28f730
     ft_mahala_xood = FeatureTester(dataset, model, "mahala", "knn", extreme=True, pen=False)
     pred_mahala_xood, pred_clean_mahala_xood = ft_mahala_xood.create_summary_combine(
         ft_mahala_xood.conf.predict_mahala, "x-ood-mahala")
@@ -484,21 +499,33 @@ def test_ood(dataset, model, alpha):
                             "x-ood-mahala-extreme-" + str(alpha), "mahala")
 
 
+<<<<<<< HEAD
     print("\n\n==> Calculating KNN with Penultimate layer values..")
+=======
+    print("Calculating KNN with Penultimate layer values..")
+>>>>>>> eaa8526f41b56480c0a7721efd6101115e28f730
     ft_knn_pen = FeatureTester(dataset, model, "knn", "knn", extreme=False, pen=True)
     ft_knn_pen.fit_knn(test=False)
     pred_knn_pen, pred_clean_knn_pen = ft_knn_pen.create_summary_combine(
         ft_knn_pen.conf.predict_knn_faiss, "open-ood-knn")
     ft_knn_pen.taylor_table(pred_knn_pen, pred_clean_knn_pen, "knn-penultimate-features-" + str(alpha), "knn")
 
+<<<<<<< HEAD
     print("\n\n==> Calculating Mahala with Penultimate layer values..")
+=======
+    print("Calculating Mahala with Penultimate layer values..")
+>>>>>>> eaa8526f41b56480c0a7721efd6101115e28f730
     ft_mahala_pen = FeatureTester(dataset, model, "mahala", "knn", extreme=False, pen=True)
     pred_mahala_pen, pred_clean_mahala_pen = ft_mahala_pen.create_summary_combine(
         ft_mahala_pen.conf.predict_mahala, "x-ood-mahala")
     ft_mahala_pen.taylor_table(pred_mahala_pen, pred_clean_mahala_pen,
                             "mahala-penultimate-" + str(alpha), "mahala")
 
+<<<<<<< HEAD
     print("\n\n==> Calculating KNN with Extreme values..")
+=======
+    print("Calculating KNN with Extreme values..")
+>>>>>>> eaa8526f41b56480c0a7721efd6101115e28f730
     ft_knn_xood = FeatureTester(dataset, model, "knn", "knn", extreme=True, pen=False)
     ft_knn_xood.fit_knn(test=False)
     pred_knn_xood, pred_clean_knn_xood = ft_knn_xood.create_summary_combine(
@@ -614,7 +641,11 @@ def test_ood(dataset, model, alpha):
     pred_n_log_m_xood_knn_pen = normalized_log_probability(pred_mahala_xood, pred_knn_pen,
             ft_mahala_xood.conf.mahala_mean, ft_knn_pen.conf.knn_mean, ft_mahala_xood.conf.mahala_std, ft_knn_pen.conf.knn_std, ft_knn_pen.conf.knn_n)
     pred_n_clean_log_m_xood_knn_pen = normalized_log_probability(pred_clean_mahala_xood, pred_clean_knn_pen, 
+<<<<<<< HEAD
             ft_mahala_xood.conf.mahala_mean, ft_knn_pen.conf.knn_mean, ft_mahala_xood.conf.mahala_std, ft_knn_pen.conf.knn_std, ft_knn_pen.conf.knn_n)
+=======
+            ft_mahala_xood.conf.mahala_mean, ft_knn_pen.conf.knn_mean, ft_mahala_xood.conf.mahala_std, ft_knn_pen.conf.knn_std, ft_knn.conf.knn_n)
+>>>>>>> eaa8526f41b56480c0a7721efd6101115e28f730
     ft_knn_pen.taylor_table(pred_n_log_m_xood_knn_pen, pred_n_clean_log_m_xood_knn_pen, "x-ood-mahala-knn-n-log","normalized_log_probability")
     
     # Mahala Pen + KNN pen normalized_log_probability
