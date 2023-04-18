@@ -135,7 +135,7 @@ class FeatureExtractor(nn.Module):
         output = self.model(x)
         return output, self._features
     
-    def predict_openood(self, images):   # predict_openood version
+    def predict(self, images):   # predict_openood version
         """ 
         receives an array of (5000,3,32,32) size (for cifar10)
         returns output_np and features
@@ -190,7 +190,7 @@ class FeatureExtractor(nn.Module):
         labels_np = torch.cat(labels).cpu().detach().numpy()
         return labels_np, output_np, features
 
-    def predict_knn_openood(self, images):   # predict_knn_openood version
+    def predict_knn(self, images):   # predict_knn_openood version
         print("confidenciator.py  ==> FeatureExtractor.predict_knn()")
         print("predict_knn() openood version called")
 
@@ -240,7 +240,7 @@ class FeatureExtractor(nn.Module):
         return output if len(output) == 0 else torch.cat(output), self.knn_features
 
     # predict_docu
-    def predict(self, images):   # predict_docu version
+    def predict_docu(self, images):   # predict_docu version (predict function for document data)
         """ 
         receives an array of (5000,3,32,32) size (for cifar10)
         returns output_np and features
@@ -306,7 +306,7 @@ class FeatureExtractor(nn.Module):
     
     
 
-    def predict_knn(self, images):  # predict_knn_docu version
+    def predict_knn_docu(self, images):  # predict_knn_docu version (predict_knn function for document data)
         print("confidenciator.py  ==> FeatureExtractor.predict_knn()")
         print("predict_knn() document version called")
 
@@ -402,13 +402,26 @@ class FeatureExtractor(nn.Module):
 
 class Confidenciator:
 
-    def __init__(self, model: nn.Module, transform, train_set, features=(MinMax(),), reg=10):
+    def __init__(self, model: nn.Module, transform, train_set,mahala_xood,knn_pen , features=(MinMax(),),reg=10):
         print("\n\n ##  Creating Confidenciator  ##")
         print("confidenciator.py  ==> __init__()")
         self.model = FeatureExtractor(model, transform, features)
         self.feat_cols = []
         #print("train set shape Before add_prediction_and_features : ", train_set.shape)
-        train_set_mahala = self.add_prediction_and_features_dl(train_set)
+        ##
+        if not mahala_xood:
+            train_set_mahala = self.add_prediction_and_penultimate_features_dl_to_mahala(train_set)
+        else:
+            train_set_mahala = self.add_prediction_and_features_dl(train_set)
+            
+        # if knn_pen:
+        #     train_set_knn = self.add_prediction_and_features_knn(train_set)
+        # else:
+        #     train_set_knn = self.add_prediction_and_extreme_features_dl_to_knn(train_set)
+            
+        
+        ##
+        # train_set_mahala = self.add_prediction_and_features_dl(train_set)
         train_set_knn = self.add_prediction_and_features_knn(train_set)
         # train_set_final_mahala = self.add_prediction_and_penultimate_features_dl_to_mahala(train_set)
         # print("train set shape After add_prediction_and_features: ", train_set.shape)
@@ -437,26 +450,49 @@ class Confidenciator:
         # x_combine = self.pt_combine.fit_transform(self.scaler_combine.fit_transform(combine_train_set_mahala_knn))
         # x_final_mahala = self.pt_final_mahala.fit_transform(self.scaler_final_mahala.fit_transform(train_set_final_mahala))
         
+        # if reg < np.inf:
+        #     cov = np.cov(x, rowvar=False)
+        #     # cov_comb = np.cov(x_combine, rowvar=False)
+        #     # cov_final_mahala = np.cov(x_final_mahala, rowvar=False)
+        #     self.inv_cov = np.linalg.inv(
+        #         cov + reg * np.identity(len(self.feat_cols)))
+        #     # self.combine_inv_cov = np.linalg.inv(
+        #     #     cov_comb + reg * np.identity(combine_train_set_mahala_knn.shape[1]))
+        #     # self.final_mahala_inv_cov = np.linalg.inv(
+        #         # cov_final_mahala + reg * np.identity(train_set_final_mahala.shape[1]))
+        # else:
+        #     self.inv_cov = np.identity(len(self.feat_cols))
+            
+            ##
         if reg < np.inf:
             cov = np.cov(x, rowvar=False)
-            # cov_comb = np.cov(x_combine, rowvar=False)
-            # cov_final_mahala = np.cov(x_final_mahala, rowvar=False)
-            self.inv_cov = np.linalg.inv(
-                cov + reg * np.identity(len(self.feat_cols)))
-            # self.combine_inv_cov = np.linalg.inv(
-            #     cov_comb + reg * np.identity(combine_train_set_mahala_knn.shape[1]))
-            # self.final_mahala_inv_cov = np.linalg.inv(
-                # cov_final_mahala + reg * np.identity(train_set_final_mahala.shape[1]))
+                    # cov_comb = np.cov(x_combine, rowvar=False)
+                    # cov_final_mahala = np.cov(x_final_mahala, rowvar=False)
+            if not mahala_xood:
+                self.inv_cov = np.linalg.inv(cov + reg * np.identity(train_set_mahala.shape[1]))
+            else:
+                self.inv_cov = np.linalg.inv(cov + reg * np.identity(len(self.feat_cols)))
+                    # self.combine_inv_cov = np.linalg.inv(
+                    #     cov_comb + reg * np.identity(combine_train_set_mahala_knn.shape[1]))
+                    # self.final_mahala_inv_cov = np.linalg.inv(
+                        # cov_final_mahala + reg * np.identity(train_set_final_mahala.shape[1]))
         else:
             self.inv_cov = np.identity(len(self.feat_cols))
             
-        self.mean = np.zeros(len(self.feat_cols))
+            ##
+            
+        # self.mean = np.zeros(len(self.feat_cols))
+        if not mahala_xood:
+            self.mean = np.zeros(train_set_mahala.shape[1])
+        else:
+            self.mean = np.zeros(len(self.feat_cols))
         # self.comb_mean = np.zeros(combine_train_set_mahala_knn.shape[1])
         # self.mean_final_mahala = np.zeros(train_set_final_mahala.shape[1])
         self.reg = reg
         
         # calculating mahala for trainset
         self.mahala_train = -np.apply_along_axis(lambda row: mahalanobis(row, self.mean, self.inv_cov), 1, x)
+        
         mahala_sq = -(self.mahala_train ** 2)
         self.mahala_mean = np.abs(mahala_sq.mean())
         self.mahala_std = np.abs(mahala_sq.std())
@@ -509,7 +545,12 @@ class Confidenciator:
     def add_prediction_and_penultimate_features_dl_to_mahala(self, dataloader):
         print("\nconfidenciator.py  ==> Confidenciator.add_prediction_and_penultimate_features_dl_to_mahala()")
         
+        # pred, features = self.model.predict_knn(dataloader)
         pred, features = self.model.predict_knn(dataloader)
+        
+        # if len(self.feat_cols) == 0:
+        #     self.feat_cols = ["Max_out", "Min_out"] + list(features.keys())
+
         #pred, features = self.model.predict(get_images_and_labelsd(df, labels=False, chw=True))
         df = pd.DataFrame(features)
         print("Mahala dataset shape: ", df.shape)
@@ -644,9 +685,9 @@ class Confidenciator:
 
     def predict_mahala(self, dataset: pd.DataFrame):  # this was buggy, now its working properly
         print("confidenciator.py  ==> Confidenciator.predict_mahala()")
-        print("dataset.shape initial", dataset.shape)
-        if not all(col in dataset.columns for col in self.feat_cols):
-            dataset = self.add_prediction_and_features(dataset)
+        print("TESTING DATASET: ", dataset.shape)
+        # if not all(col in dataset.columns for col in self.feat_cols):
+        #     dataset = self.add_prediction_and_features(dataset)
             
         # x = self.pt.transform(self.scaler.transform(dataset[self.feat_cols]))
         x = self.pt.transform(self.scaler.transform(dataset))
