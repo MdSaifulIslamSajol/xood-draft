@@ -595,22 +595,22 @@ def test_ood(dataset, model, alpha):
     # Mahala xood + KNN pen square log probabilty  
     pred_sq_log_m_xood_knn_pen = square_log_probability(pred_mahala_xood, pred_knn_pen, ft_knn_pen.conf.knn_n)
     pred_clean_sq_log_m_xood_knn_pen = square_log_probability(pred_clean_mahala_xood, pred_clean_knn_pen, ft_knn_pen.conf.knn_n)
-    ft_knn_pen.taylor_table(pred_sq_log_m_xood_knn_pen, pred_clean_sq_log_m_xood_knn_pen, "x-ood-mahala-knn-log-sq", "square_log_probability")
+    ft_knn_pen.taylor_table(pred_sq_log_m_xood_knn_pen, pred_clean_sq_log_m_xood_knn_pen, "xood-mahala-pen-knn-log-sq", "square_log_probability")
 
     # Mahala Pen + KNN pen square log probabilty  
     pred_sq_log_m_pen_knn_pen = square_log_probability(pred_mahala_pen, pred_knn_pen, ft_knn_pen.conf.knn_n)
     pred_clean_sq_log_m_pen_knn_pen = square_log_probability(pred_clean_mahala_pen, pred_clean_knn_pen, ft_knn_pen.conf.knn_n)
-    ft_knn_pen.taylor_table(pred_sq_log_m_pen_knn_pen, pred_clean_sq_log_m_pen_knn_pen, "x-ood-mahala-knn-log-sq", "square_log_probability")
+    ft_knn_pen.taylor_table(pred_sq_log_m_pen_knn_pen, pred_clean_sq_log_m_pen_knn_pen, "pen-mahala-pen-knn-log-sq", "square_log_probability")
 
     # Mahala xood + KNN Xood square log probabilty  
     pred_sq_log_m_xood_knn_xood = square_log_probability(pred_mahala_xood, pred_knn_xood, ft_knn_xood.conf.knn_n)
     pred_clean_sq_log_m_xood_knn_xood = square_log_probability(pred_clean_mahala_xood, pred_clean_knn_xood, ft_knn_xood.conf.knn_n)
-    ft_knn_xood.taylor_table(pred_sq_log_m_xood_knn_xood, pred_clean_sq_log_m_xood_knn_xood, "x-ood-mahala-knn-log-sq", "square_log_probability")
+    ft_knn_xood.taylor_table(pred_sq_log_m_xood_knn_xood, pred_clean_sq_log_m_xood_knn_xood, "xood-mahala-xood-knn-log-sq", "square_log_probability")
 
     # Mahala pen + KNN xood square log probabilty  
     pred_sq_log_m_pen_knn_xood = square_log_probability(pred_mahala_pen, pred_knn_xood, ft_knn_xood.conf.knn_n)
     pred_clean_sq_log_m_pen_knn_xood = square_log_probability(pred_clean_mahala_pen, pred_clean_knn_xood, ft_knn_xood.conf.knn_n)
-    ft_knn_xood.taylor_table(pred_sq_log_m_pen_knn_xood, pred_clean_sq_log_m_pen_knn_xood, "x-ood-mahala-knn-log-sq", "square_log_probability")
+    ft_knn_xood.taylor_table(pred_sq_log_m_pen_knn_xood, pred_clean_sq_log_m_pen_knn_xood, "pen-mahala-xood-knn-log-sq", "square_log_probability")
 
 
     # Mahala xood + KNN pen normalized_log_probability
@@ -618,28 +618,28 @@ def test_ood(dataset, model, alpha):
             ft_mahala_xood.conf.mahala_mean, ft_knn_pen.conf.knn_mean, ft_mahala_xood.conf.mahala_std, ft_knn_pen.conf.knn_std, ft_knn_pen.conf.knn_n)
     pred_n_clean_log_m_xood_knn_pen = normalized_log_probability(pred_clean_mahala_xood, pred_clean_knn_pen, 
             ft_mahala_xood.conf.mahala_mean, ft_knn_pen.conf.knn_mean, ft_mahala_xood.conf.mahala_std, ft_knn_pen.conf.knn_std, ft_knn_pen.conf.knn_n)
-    ft_knn_pen.taylor_table(pred_n_log_m_xood_knn_pen, pred_n_clean_log_m_xood_knn_pen, "x-ood-mahala-knn-n-log","normalized_log_probability")
+    ft_knn_pen.taylor_table(pred_n_log_m_xood_knn_pen, pred_n_clean_log_m_xood_knn_pen, "xood-mahala-pen-knn-n-log","normalized_log_probability")
     
     # Mahala Pen + KNN pen normalized_log_probability
     pred_n_log_m_pen_knn_pen = normalized_log_probability(pred_mahala_pen, pred_knn_pen,
             ft_mahala_pen.conf.mahala_mean, ft_knn_pen.conf.knn_mean, ft_mahala_pen.conf.mahala_std, ft_knn_pen.conf.knn_std, ft_knn_pen.conf.knn_n)
     pred_n_clean_log_m_pen_knn_pen = normalized_log_probability(pred_clean_mahala_pen, pred_clean_knn_pen, 
             ft_mahala_pen.conf.mahala_mean, ft_knn_pen.conf.knn_mean, ft_mahala_pen.conf.mahala_std, ft_knn_pen.conf.knn_std, ft_knn_pen.conf.knn_n)
-    ft_knn_pen.taylor_table(pred_n_log_m_pen_knn_pen, pred_n_clean_log_m_pen_knn_pen, "x-ood-mahala-knn-n-log","normalized_log_probability")
+    ft_knn_pen.taylor_table(pred_n_log_m_pen_knn_pen, pred_n_clean_log_m_pen_knn_pen, "pen-mahala-pen-knn-n-log","normalized_log_probability")
     
     # Mahala xood + KNN Xood normalized_log_probability
     pred_n_log_m_xood_knn_xood = normalized_log_probability(pred_mahala_xood, pred_knn_xood,
             ft_mahala_xood.conf.mahala_mean, ft_knn_xood.conf.knn_mean, ft_mahala_xood.conf.mahala_std, ft_knn_xood.conf.knn_std, ft_knn_xood.conf.knn_n)
     pred_n_clean_log_m_xood_knn_xood = normalized_log_probability(pred_clean_mahala_xood, pred_clean_knn_xood, 
             ft_mahala_xood.conf.mahala_mean, ft_knn_xood.conf.knn_mean, ft_mahala_xood.conf.mahala_std, ft_knn_xood.conf.knn_std, ft_knn_xood.conf.knn_n)
-    ft_knn_xood.taylor_table(pred_n_log_m_xood_knn_xood, pred_n_clean_log_m_xood_knn_xood, "x-ood-mahala-knn-n-log","normalized_log_probability")
+    ft_knn_xood.taylor_table(pred_n_log_m_xood_knn_xood, pred_n_clean_log_m_xood_knn_xood, "xood-mahala-xood-knn-n-log","normalized_log_probability")
     
     # Mahala Pen + KNN xood normalized_log_probability
     pred_n_log_m_pen_knn_xood = normalized_log_probability(pred_mahala_pen, pred_knn_xood,
             ft_mahala_pen.conf.mahala_mean, ft_knn_xood.conf.knn_mean, ft_mahala_pen.conf.mahala_std, ft_knn_xood.conf.knn_std, ft_knn_xood.conf.knn_n)
     pred_n_clean_log_m_pen_knn_xood = normalized_log_probability(pred_clean_mahala_pen, pred_clean_knn_xood, 
             ft_mahala_pen.conf.mahala_mean, ft_knn_xood.conf.knn_mean, ft_mahala_pen.conf.mahala_std, ft_knn_xood.conf.knn_std, ft_knn_xood.conf.knn_n)
-    ft_knn_xood.taylor_table(pred_n_log_m_pen_knn_xood, pred_n_clean_log_m_pen_knn_xood, "x-ood-mahala-knn-n-log","normalized_log_probability")
+    ft_knn_xood.taylor_table(pred_n_log_m_pen_knn_xood, pred_n_clean_log_m_pen_knn_xood, "pen-mahala-xood-knn-n-log","normalized_log_probability")
     
     
     # if isinstance(pred_mahala_xood, dict):
@@ -704,9 +704,9 @@ if __name__ == "__main__":
     # test_ood("cifar10", "resnet", 0.5)
 
     # test_ood("cifar100", "resnet", 0.5)
-    # test_ood("document", "resnet50_docu", 0.5)
+    test_ood("document", "resnet50_docu", 0.5)
 
-    test_ood("imagenet", "resnet50", 0.5)
+    # test_ood("imagenet", "resnet50", 0.5)
     # for i in [0.7]:
     #   test_ood("imagenet", "resnet34", i)
     #   test_ood("cifar10", "resnet", i)
