@@ -595,7 +595,11 @@ def test_ood(dataset, model, alpha):
     # Mahala xood + KNN pen square log probabilty  
     pred_sq_log_m_xood_knn_pen = square_log_probability(pred_mahala_xood, pred_knn_pen, ft_knn_pen.conf.knn_n)
     pred_clean_sq_log_m_xood_knn_pen = square_log_probability(pred_clean_mahala_xood, pred_clean_knn_pen, ft_knn_pen.conf.knn_n)
+<<<<<<< HEAD
     ft_knn_pen.taylor_table(pred_sq_log_m_xood_knn_pen, pred_clean_sq_log_m_xood_knn_pen, "xood-mahala-pen-knn-log-sq", "square_log_probability")
+=======
+    ft_knn_pen.taylor_table(pred_sq_log_m_xood_knn_pen, pred_clean_sq_log_m_xood_knn_pen, "xood-mahala-pen-knn-sq", "square_log_probability")
+>>>>>>> a31a0c476320eb12316a1d150b6e56b3442ef187
 
     # Mahala Pen + KNN pen square log probabilty  
     pred_sq_log_m_pen_knn_pen = square_log_probability(pred_mahala_pen, pred_knn_pen, ft_knn_pen.conf.knn_n)
@@ -701,10 +705,10 @@ if __name__ == "__main__":
     
     # sys.stdout = open("console_output_knn_comb.txt", "w")
     # test_ood("mnist", "lenet", 0.5)
-    # test_ood("cifar10", "resnet", 0.5)
+    test_ood("cifar10", "resnet", 0.5)
 
     # test_ood("cifar100", "resnet", 0.5)
-    test_ood("document", "resnet50_docu", 0.5)
+    # test_ood("document", "resnet50_docu", 0.5)
 
     # test_ood("imagenet", "resnet50", 0.5)
     # for i in [0.7]:
