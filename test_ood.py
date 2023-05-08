@@ -113,7 +113,7 @@ def get_incorrect_indices(in_dist, out_dist,dataset_name,featuretester_method):
     optimal_threshold = calculate_optimal_threshold(y_true,y_pred,dataset_name,featuretester_method)
     
     # Convert the predicted scores to binary predictions using a threshold of 0.5
-    # assuming for out_dist the probability shoule be less than 0.5
+    # assuming for out_dist the probability shoule be less than optimal_threshold
     y_binary = y_pred_ood < optimal_threshold
     
     num_true = np.count_nonzero(y_binary)
@@ -752,13 +752,25 @@ def test_ood(dataset, model, alpha):
     print("len(incorrect_indices_knn_cifar10)  :",len(incorrect_indices_knn_cifar10))
     print("len(incorrect_indices_mahala_cifar10)  :",len(incorrect_indices_mahala_cifar10))
     print("len(incorrect_indices_xood_mahala_pen_knn_log_sq_cifar10)  :",len(incorrect_indices_xood_mahala_pen_knn_log_sq_cifar10))
-    missing_indices = set(incorrect_indices_xood_mahala_pen_knn_log_sq_cifar10) - set(incorrect_indices_knn_cifar10)
-    # print(list(missing_indices))
-    # print("len(list(missing_indices)) for cifar10:",len(list(missing_indices)))
-    missing_indices= list(missing_indices)
-    save_missing_indices_images_in_folder(list(incorrect_indices_knn_cifar10),"incorrect_indices_knn_cifar10" )
+ 
+    
+    knn= set(incorrect_indices_knn_cifar10)    # len(list(knn)) = 581
+    comb_sq_log = set(incorrect_indices_xood_mahala_pen_knn_log_sq_cifar10)  # len(list(knn)) = 80    581
+    common_indices = knn.intersection(comb_sq_log)  # len(list(common_indices))=49
+    
+    # we are removing common indices which are wrongly classified by both knn and comb_log_sq
+    knn_only = knn- common_indices  # len(list(knn_only)) =532
+    comb_sq_log_only = comb_sq_log- common_indices # len(list(comb_sq_log_only)) =31
+    
+    missing_indices = knn_only - comb_sq_log_only
+    save_missing_indices_images_in_folder(list(missing_indices),"missing_indices" )
+    
+       
+    # missing_indices = set(incorrect_indices_xood_mahala_pen_knn_log_sq_cifar10) - set(incorrect_indices_knn_cifar10)
+    
+    # save_missing_indices_images_in_folder(list(incorrect_indices_knn_cifar10),"incorrect_indices_knn_cifar10" )
     # save_missing_indices_images_in_folder(list(incorrect_indices_mahala_cifar10),"incorrect_indices_mahala_cifar10" )
-    save_missing_indices_images_in_folder(list(incorrect_indices_xood_mahala_pen_knn_log_sq_cifar10),"incorrect_indices_xood_mahala_pen_knn_log_sq_cifar10" )
+    # save_missing_indices_images_in_folder(list(incorrect_indices_xood_mahala_pen_knn_log_sq_cifar10),"incorrect_indices_xood_mahala_pen_knn_log_sq_cifar10" )
     print("1.32 saving done")
     
     # =============================================================================
