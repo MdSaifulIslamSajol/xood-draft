@@ -790,3 +790,8 @@ class Confidenciator:
 def split_features(features: np.ndarray):
     print("confidenciator.py  ==>  split_features() ")
     return np.concatenate([- np.clip(features, 0, None), - np.clip(-features, 0, None)], axis=1)
+
+
+# to run the code for document dataset you need to rename the function of FeatureExtractor.predict() and FeatureExtractor.predict_knn()
+# rename the function predict_openood() to predict()
+# and predict_knn_openood() to predict_knn()

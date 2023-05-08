@@ -9,6 +9,7 @@ from tensorflow.keras.datasets import fashion_mnist, mnist, cifar10, cifar100 as
 from scipy.io import loadmat
 import torchvision
 import torch
+import random
 import pickle
 from pathlib import Path
 import os
@@ -566,11 +567,11 @@ def out_of_dist(dataset_name, debug=False):
         mnist_ood = out_of_dict_from_openood_for_mnist()
         datasets.update({
             "Cifar10": mnist_ood["cifar10"] ,
-            "NonMNIST": mnist_ood["notmnist"],
-            "FashionMNIST": mnist_ood["fashionmnist"],
-            "Tin": mnist_ood["tin"],
-            "Places": mnist_ood["places"],
-            "Texture": mnist_ood["texture"],
+            # "NonMNIST": mnist_ood["notmnist"],
+            # "FashionMNIST": mnist_ood["fashionmnist"],
+            # "Tin": mnist_ood["tin"],
+            # "Places": mnist_ood["places"],
+            # "Texture": mnist_ood["texture"],
         })
     elif dataset_name == "cifar10":
         cifar10_ood = out_of_dict_from_openood_for_cifar10()
@@ -702,22 +703,22 @@ def out_of_dict_from_openood_for_mnist():
 
 
     # access each dataloader
-    fashionmnist_loader = ood_dict_for_mnist['nearood']['fashionmnist']
-    notmnist_loader = ood_dict_for_mnist['nearood']['notmnist']
+    # fashionmnist_loader = ood_dict_for_mnist['nearood']['fashionmnist']
+    # notmnist_loader = ood_dict_for_mnist['nearood']['notmnist']
 
     cifar10_loader = ood_dict_for_mnist['farood']['cifar10']
-    tin_loader = ood_dict_for_mnist['farood']['tin']
-    places_loader = ood_dict_for_mnist['farood']['places365']
-    texture_loader = ood_dict_for_mnist['farood']['texture']
+    # tin_loader = ood_dict_for_mnist['farood']['tin']
+    # places_loader = ood_dict_for_mnist['farood']['places365']
+    # texture_loader = ood_dict_for_mnist['farood']['texture']
 
     
     ood_datasets = {
-        "notmnist" : notmnist_loader,
-        "fashionmnist" : fashionmnist_loader,
+        # "notmnist" : notmnist_loader,
+        # "fashionmnist" : fashionmnist_loader,
         "cifar10": cifar10_loader,
-        "tin" : tin_loader ,
-        "places" : places_loader,
-        "texture" : texture_loader,
+        # "tin" : tin_loader ,
+        # "places" : places_loader,
+        # "texture" : texture_loader,
 
     }
 
@@ -1419,6 +1420,37 @@ def out_of_dict_from_openood_for_cifar100_pickle():
     os.chdir(old_path)
     return ood_datasets
 
+def save_missing_indices_images_in_folder(missing_indices, folder_name):
+    print("save_missing_indices_images_in_folder()")
+
+    # Convert the NumPy array to a Python list
+    ood_datasets = out_of_dict_from_openood_for_mnist()
+    testloader = ood_datasets["cifar10"]
+        
+    missing_indices = [int(x) for x in missing_indices]
+    # random.seed(1234)
+    # missing_indices= random.sample(missing_indices, 5)
+    print(missing_indices)
+    # Create the directory for saving missing images if it doesn't exist
+    directory = os.path.join('/home/saiful/confidence-magesh_MR/confidence-magesh/missing_images', folder_name)
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+    
+    # Convert missing_indices to a set for faster lookup
+    missing_indices_set = set(missing_indices)
+    missing_images = []
+    for i, data in enumerate(testloader):
+        image_tensor = data["data"]
+        print("image_tensor.shape :", image_tensor.shape)
+        for index in missing_indices_set:
+            image = image_tensor[index]
+            image = image.numpy()
+            # Convert to numpy array and normalize pixel values to [0,1]
+            image_array = (image.transpose(1, 2, 0) - image.min()) / (image.max() - image.min())
+            plt.imsave(f'{directory}/missing_image_{index}.png', image_array)
+    print("-- indices images saved")
+            
+    
 
 if __name__ == "__main__":
     out_of_dict_from_openood_for_imagenet()
