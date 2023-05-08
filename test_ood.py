@@ -62,6 +62,30 @@ def taylor_scores(in_dist, out_dist,dataset_name,featuretester_method):
     })
     return scores
 
+def mcnemar_test(a, b):
+    if len(a) != len(b): 
+        return None
+    true_true_a = 0
+    true_false_b = 0
+    false_true_c = 0
+    false_false_d = 0
+                
+    for i in range(0, len(a)):
+        if a[i] is True and b[i] is True:
+                true_true_a+=1
+        elif a[i] is True and b[i] is False:
+                true_false_b+=1
+        elif a[i] is False and b[i] is True:
+                false_true_c+=1
+        elif a[i] is False and b[i] is False: 
+                false_false_d+=1
+        else:
+            pass
+    print(true_true_a, true_false_b, false_true_c, false_false_d)
+    mcnemar = (true_false_b - false_true_c)**2 / (true_false_b + false_true_c)
+    
+    return mcnemar
+
 def calculate_optimal_threshold(y_test, y_prob,dataset_name,featuretester_method):
     print("calculate_optimal_threshold()")
     fpr, tpr, thresholds = roc_curve(y_test, y_prob)
@@ -85,6 +109,7 @@ def calculate_optimal_threshold(y_test, y_prob,dataset_name,featuretester_method
     # Find the optimal threshold
     optimal_threshold = thresholds[np.argmax(tpr - fpr)]   
     print('flag 1.6 The optimal threshold is:', optimal_threshold)
+    
     
     return optimal_threshold
     
@@ -116,6 +141,7 @@ def get_incorrect_indices(in_dist, out_dist,dataset_name,featuretester_method):
     # assuming for out_dist the probability shoule be less than optimal_threshold
     y_binary = y_pred_ood < optimal_threshold
     
+    
     num_true = np.count_nonzero(y_binary)
     num_false = y_binary.size - num_true
     print(f"Number of True values: {num_true}")
@@ -134,8 +160,9 @@ def get_incorrect_indices(in_dist, out_dist,dataset_name,featuretester_method):
     
     incorrect_indices = pd.Series({
         "incorrect_indices": incorrect_indices,
+        "y_binary":y_binary
     })
-    return incorrect_indices
+    return incorrect_indices #, y_binary
 
 
 class FeatureTester: 
@@ -310,6 +337,7 @@ class FeatureTester:
             
         incorrect_indices_table = pd.DataFrame.from_dict(
             {name: get_incorrect_indices(map_pred(pred_clean), map_pred(p),name,featuretester_method) for name, p in pred.items()}, orient="index")   
+        
         print("incorrect_indices_table :",incorrect_indices_table)
         return incorrect_indices_table
         
@@ -771,6 +799,16 @@ def test_ood(dataset, model, alpha):
     # save_missing_indices_images_in_folder(list(incorrect_indices_knn_cifar10),"incorrect_indices_knn_cifar10" )
     # save_missing_indices_images_in_folder(list(incorrect_indices_mahala_cifar10),"incorrect_indices_mahala_cifar10" )
     # save_missing_indices_images_in_folder(list(incorrect_indices_xood_mahala_pen_knn_log_sq_cifar10),"incorrect_indices_xood_mahala_pen_knn_log_sq_cifar10" )
+    
+    # =============================================================================
+    #     mcnemar test 
+    # =============================================================================
+    ybinary_knn_cifar10 = incorrect_indices_table_knn_pen.loc['Cifar10', 'y_binary']
+    ybinary_mahala_cifar10 = incorrect_indices_table_mahala_xtreme.loc['Cifar10', 'y_binary']
+    ybinary_xood_mahala_pen_knn_log_sq_cifar10 = incorrect_indices_table_xood_mahala_pen_knn_log_sq.loc['Cifar10', 'y_binary']
+    
+    mcnemar_knn_with_comb =mcnemar_test(ybinary_knn_cifar10,ybinary_xood_mahala_pen_knn_log_sq_cifar10)
+    print("flag 1.7 mcnemar_knn_with_comb :",mcnemar_knn_with_comb)
     print("1.32 saving done")
     
     # =============================================================================
