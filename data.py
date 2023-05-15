@@ -567,11 +567,11 @@ def out_of_dist(dataset_name, debug=False):
         mnist_ood = out_of_dict_from_openood_for_mnist()
         datasets.update({
             "Cifar10": mnist_ood["cifar10"] ,
-            # "NonMNIST": mnist_ood["notmnist"],
-            # "FashionMNIST": mnist_ood["fashionmnist"],
-            # "Tin": mnist_ood["tin"],
-            # "Places": mnist_ood["places"],
-            # "Texture": mnist_ood["texture"],
+            "NonMNIST": mnist_ood["notmnist"],
+            "FashionMNIST": mnist_ood["fashionmnist"],
+            "Tin": mnist_ood["tin"],
+            "Places": mnist_ood["places"],
+            "Texture": mnist_ood["texture"],
         })
     elif dataset_name == "cifar10":
         cifar10_ood = out_of_dict_from_openood_for_cifar10()
@@ -703,22 +703,21 @@ def out_of_dict_from_openood_for_mnist():
 
 
     # access each dataloader
-    # fashionmnist_loader = ood_dict_for_mnist['nearood']['fashionmnist']
-    # notmnist_loader = ood_dict_for_mnist['nearood']['notmnist']
-
+    fashionmnist_loader = ood_dict_for_mnist['nearood']['fashionmnist']
+    notmnist_loader = ood_dict_for_mnist['nearood']['notmnist']
     cifar10_loader = ood_dict_for_mnist['farood']['cifar10']
-    # tin_loader = ood_dict_for_mnist['farood']['tin']
-    # places_loader = ood_dict_for_mnist['farood']['places365']
-    # texture_loader = ood_dict_for_mnist['farood']['texture']
+    tin_loader = ood_dict_for_mnist['farood']['tin']
+    places_loader = ood_dict_for_mnist['farood']['places365']
+    texture_loader = ood_dict_for_mnist['farood']['texture']
 
     
     ood_datasets = {
-        # "notmnist" : notmnist_loader,
-        # "fashionmnist" : fashionmnist_loader,
+        "notmnist" : notmnist_loader,
+        "fashionmnist" : fashionmnist_loader,
         "cifar10": cifar10_loader,
-        # "tin" : tin_loader ,
-        # "places" : places_loader,
-        # "texture" : texture_loader,
+        "tin" : tin_loader ,
+        "places" : places_loader,
+        "texture" : texture_loader,
 
     }
 
@@ -1430,7 +1429,7 @@ def save_missing_indices_images_in_folder(missing_indices, folder_name):
     missing_indices = [int(x) for x in missing_indices]
     # random.seed(1234)
     # missing_indices= random.sample(missing_indices, 5)
-    print(missing_indices)
+    # print(missing_indices)
     # Create the directory for saving missing images if it doesn't exist
     directory = os.path.join('/home/saiful/confidence-magesh_MR/confidence-magesh/missing_images', folder_name)
     if not os.path.exists(directory):

@@ -25,6 +25,7 @@ import pickle
 import time
 import random
 from scipy import stats
+from statsmodels.stats.contingency_tables import mcnemar
 
 
 def convert_seconds(seconds):
@@ -40,14 +41,14 @@ def taylor_scores(in_dist, out_dist,dataset_name,featuretester_method):
     print("dataset_name 1.2 :",dataset_name)
     print("np.shape(in_dist): ",np.shape(in_dist))
     print("np.shape(out_dist): ",np.shape(out_dist))
-    print("(in_dist): ",in_dist )
-    print("(out_dist): ",out_dist )
+    # print("(in_dist): ",in_dist )
+    # print("(out_dist): ",out_dist )
     y_true = np.concatenate([np.ones(len(in_dist)), np.zeros(len(out_dist))])
     y_pred = np.concatenate([in_dist, out_dist])
     print("np.shape(y_true): ",np.shape(y_true))
     print("np.shape(y_pred): ",np.shape(y_pred))
-    print("(y_true): ",y_true)
-    print("(y_pred): ",y_pred)
+    # print("(y_true): ",y_true)
+    # print("(y_pred): ",y_pred)
 
     fpr, fnr, thr = det_curve(y_true, y_pred, pos_label=1)
     det_err = np.min((fnr + fpr) / 2)
@@ -63,6 +64,7 @@ def taylor_scores(in_dist, out_dist,dataset_name,featuretester_method):
     return scores
 
 def mcnemar_test(a, b):
+    mcnemar_dict = {}
     if len(a) != len(b): 
         return None
     true_true_a = 0
@@ -71,29 +73,62 @@ def mcnemar_test(a, b):
     false_false_d = 0
                 
     for i in range(0, len(a)):
-        if a[i] is True and b[i] is True:
-                true_true_a+=1
-        elif a[i] is True and b[i] is False:
-                true_false_b+=1
-        elif a[i] is False and b[i] is True:
-                false_true_c+=1
-        elif a[i] is False and b[i] is False: 
-                false_false_d+=1
+        # print("flag 1.8 i",i)
+        # print("flag 1.8 a[i]",a[i])
+        # print("flag 1.8 b[i]",b[i])
+
+        if a[i] and b[i]:
+            true_true_a+=1
+        elif a[i] and not b[i]:
+            true_false_b+=1
+        elif not a[i] and b[i]:
+            false_true_c+=1
+        elif not a[i] and not b[i]: 
+            false_false_d+=1
         else:
             pass
     print(true_true_a, true_false_b, false_true_c, false_false_d)
-    mcnemar = (true_false_b - false_true_c)**2 / (true_false_b + false_true_c)
+    print("mcnemar_test :","\ntrue_true_a:", true_true_a, "\ntrue_false_b:", true_false_b, "\nfalse_true_c:", false_true_c, "\nfalse_false_d:", false_false_d)
+    # mcnemar = (true_false_b - false_true_c)**2 / (true_false_b + false_true_c)
     
-    return mcnemar
+    table = [[true_true_a, true_false_b], [false_true_c, false_false_d]]
+    result = mcnemar(table, exact=False, correction = True)
+    mcnemar_dict = {"pvalue":result.pvalue , 
+                    "statistic" :result.statistic }
+    # return float(result.pvalue), result.statistic
+    return mcnemar_dict
 
+  
+def get_mcnemar_for_all_ood_data(id_dataset,df1,df2):
+    print("get_mcnemar_for_all_ood_data()")
+    print("flag 1.11 mcnemar test for","id dataset-",id_dataset)
+    mcnemar_test_dict = {}
+    print("flag 1.11 df1.index : ", df1.index)
+    print("flag 1.11 df2.index : ", df2.index)
+
+    # loop over each index and calculate the sum of loss column for that index in both dataframes
+    for index in df1.index:
+        a= df1.loc[index,'y_binary']
+        b= df2.loc[index,'y_binary']
+        print("flag 1.21 a :",a)
+        print("flag 1.21 b :",b)
+        mcnemar_test_dict[index] = mcnemar_test(a,b)
+    
+    # p_value, stat_value =mcnemar_test(ybinary_knn_cifar10,ybinary_xood_mahala_pen_knn_log_sq_cifar10)
+    df3 = pd.DataFrame(mcnemar_test_dict).transpose()
+    df3.to_csv(f"{id_dataset}_mcnemar_test_dict.txt", sep="\t")
+    df3.to_csv(f"{id_dataset}_mcnemar_test_dict_df3.csv")
+    print('flag 1.11 mcnemar_test_dict:',mcnemar_test_dict)
+
+    
 def calculate_optimal_threshold(y_test, y_prob,dataset_name,featuretester_method):
     print("calculate_optimal_threshold()")
     fpr, tpr, thresholds = roc_curve(y_test, y_prob)
     roc_auc = roc_auc_score(y_test, y_prob)
-    print("flag 1.6 roc_auc :",roc_auc)
-    print("flag 1.6 fpr :",fpr)
-    print("flag 1.6 tpr :",tpr)
-    print("flag 1.6 thresholds :",thresholds)
+    # print("flag 1.6 roc_auc :",roc_auc)
+    # print("flag 1.6 fpr :",fpr)
+    # print("flag 1.6 tpr :",tpr)
+    # print("flag 1.6 thresholds :",thresholds)
     
     # Plot the ROC curve
     plt.clf()
@@ -102,14 +137,13 @@ def calculate_optimal_threshold(y_test, y_prob,dataset_name,featuretester_method
     plt.ylabel('True Positive Rate')
     plt.title('ROC curve')
     plt.legend()
-    plt.savefig(f'roc_curve_{featuretester_method}_{dataset_name}.png')
+    # plt.savefig(f'roc_curve_{featuretester_method}_{dataset_name}.png')
     plt.show()
     plt.clf()
     
     # Find the optimal threshold
     optimal_threshold = thresholds[np.argmax(tpr - fpr)]   
     print('flag 1.6 The optimal threshold is:', optimal_threshold)
-    
     
     return optimal_threshold
     
@@ -121,14 +155,14 @@ def get_incorrect_indices(in_dist, out_dist,dataset_name,featuretester_method):
     print("dataset_name 1.2 :",dataset_name)
     print("np.shape(in_dist): ",np.shape(in_dist))
     print("np.shape(out_dist): ",np.shape(out_dist))
-    print("(in_dist): ",in_dist )
-    print("(out_dist): ",out_dist )
+    # print("(in_dist): ",in_dist )
+    # print("(out_dist): ",out_dist )
     y_true = np.concatenate([np.ones(len(in_dist)), np.zeros(len(out_dist))])
     y_pred = np.concatenate([in_dist, out_dist])
     print("np.shape(y_true): ",np.shape(y_true))
     print("np.shape(y_pred): ",np.shape(y_pred))
-    print("(y_true): ",y_true)
-    print("(y_pred): ",y_pred)
+    # print("(y_true): ",y_true)
+    # print("(y_pred): ",y_pred)
     ## ##
     # Calculate the ROC AUC score
     roc_auc = roc_auc_score(y_true, y_pred)
@@ -155,8 +189,8 @@ def get_incorrect_indices(in_dist, out_dist,dataset_name,featuretester_method):
     # Print the number of correct and incorrect predictions and their indices
     print(f"Number of correct predictions: {len(correct_indices)}")
     print(f"Number of incorrect predictions: {len(incorrect_indices)}")
-    print("Indices of correct predictions:", correct_indices)
-    print("Indices of incorrect predictions:", incorrect_indices)
+    # print("Indices of correct predictions:", correct_indices)
+    # print("Indices of incorrect predictions:", incorrect_indices)
     
     incorrect_indices = pd.Series({
         "incorrect_indices": incorrect_indices,
@@ -338,7 +372,7 @@ class FeatureTester:
         incorrect_indices_table = pd.DataFrame.from_dict(
             {name: get_incorrect_indices(map_pred(pred_clean), map_pred(p),name,featuretester_method) for name, p in pred.items()}, orient="index")   
         
-        print("incorrect_indices_table :",incorrect_indices_table)
+        print("flag 1.81 incorrect_indices_table :",incorrect_indices_table)
         return incorrect_indices_table
         
     def create_summary(self, f, name="", corr=False):
@@ -773,43 +807,57 @@ def test_ood(dataset, model, alpha):
     # =============================================================================
     #     save_missing_indices_images_in_folder
     # =============================================================================
-    incorrect_indices_knn_cifar10 = incorrect_indices_table_knn_pen.loc['Cifar10', 'incorrect_indices']
-    incorrect_indices_mahala_cifar10 = incorrect_indices_table_mahala_xtreme.loc['Cifar10', 'incorrect_indices']
-    incorrect_indices_xood_mahala_pen_knn_log_sq_cifar10 = incorrect_indices_table_xood_mahala_pen_knn_log_sq.loc['Cifar10', 'incorrect_indices']
+    # incorrect_indices_knn_cifar10 = incorrect_indices_table_knn_pen.loc['Cifar10', 'incorrect_indices']
+    # incorrect_indices_mahala_cifar10 = incorrect_indices_table_mahala_xtreme.loc['Cifar10', 'incorrect_indices']
+    # incorrect_indices_xood_mahala_pen_knn_log_sq_cifar10 = incorrect_indices_table_xood_mahala_pen_knn_log_sq.loc['Cifar10', 'incorrect_indices']
 
-    print("len(incorrect_indices_knn_cifar10)  :",len(incorrect_indices_knn_cifar10))
-    print("len(incorrect_indices_mahala_cifar10)  :",len(incorrect_indices_mahala_cifar10))
-    print("len(incorrect_indices_xood_mahala_pen_knn_log_sq_cifar10)  :",len(incorrect_indices_xood_mahala_pen_knn_log_sq_cifar10))
+    # print("len(incorrect_indices_knn_cifar10)  :",len(incorrect_indices_knn_cifar10))
+    # print("len(incorrect_indices_mahala_cifar10)  :",len(incorrect_indices_mahala_cifar10))
+    # print("len(incorrect_indices_xood_mahala_pen_knn_log_sq_cifar10)  :",len(incorrect_indices_xood_mahala_pen_knn_log_sq_cifar10))
  
     
-    knn= set(incorrect_indices_knn_cifar10)    # len(list(knn)) = 581
-    comb_sq_log = set(incorrect_indices_xood_mahala_pen_knn_log_sq_cifar10)  # len(list(knn)) = 80    581
-    common_indices = knn.intersection(comb_sq_log)  # len(list(common_indices))=49
+    # knn= set(incorrect_indices_knn_cifar10)    # len(list(knn)) = 581
+    # comb_sq_log = set(incorrect_indices_xood_mahala_pen_knn_log_sq_cifar10)  # len(list(knn)) = 80    581
+    # common_indices = knn.intersection(comb_sq_log)  # len(list(common_indices))=49
     
-    # we are removing common indices which are wrongly classified by both knn and comb_log_sq
-    knn_only = knn- common_indices  # len(list(knn_only)) =532
-    comb_sq_log_only = comb_sq_log- common_indices # len(list(comb_sq_log_only)) =31
+    # # we are removing common indices which are wrongly classified by both knn and comb_log_sq
+    # knn_only = knn- common_indices  # len(list(knn_only)) =532
+    # comb_sq_log_only = comb_sq_log- common_indices # len(list(comb_sq_log_only)) =31
     
-    missing_indices = knn_only - comb_sq_log_only
-    save_missing_indices_images_in_folder(list(missing_indices),"missing_indices" )
+    # missing_indices = knn_only - comb_sq_log_only
+    # save_missing_indices_images_in_folder(list(missing_indices),"missing_indices" )
     
        
-    # missing_indices = set(incorrect_indices_xood_mahala_pen_knn_log_sq_cifar10) - set(incorrect_indices_knn_cifar10)
+    # # missing_indices = set(incorrect_indices_xood_mahala_pen_knn_log_sq_cifar10) - set(incorrect_indices_knn_cifar10)
     
-    # save_missing_indices_images_in_folder(list(incorrect_indices_knn_cifar10),"incorrect_indices_knn_cifar10" )
-    # save_missing_indices_images_in_folder(list(incorrect_indices_mahala_cifar10),"incorrect_indices_mahala_cifar10" )
-    # save_missing_indices_images_in_folder(list(incorrect_indices_xood_mahala_pen_knn_log_sq_cifar10),"incorrect_indices_xood_mahala_pen_knn_log_sq_cifar10" )
+    # # save_missing_indices_images_in_folder(list(incorrect_indices_knn_cifar10),"incorrect_indices_knn_cifar10" )
+    # # save_missing_indices_images_in_folder(list(incorrect_indices_mahala_cifar10),"incorrect_indices_mahala_cifar10" )
+    # # save_missing_indices_images_in_folder(list(incorrect_indices_xood_mahala_pen_knn_log_sq_cifar10),"incorrect_indices_xood_mahala_pen_knn_log_sq_cifar10" )
     
     # =============================================================================
     #     mcnemar test 
     # =============================================================================
-    ybinary_knn_cifar10 = incorrect_indices_table_knn_pen.loc['Cifar10', 'y_binary']
-    ybinary_mahala_cifar10 = incorrect_indices_table_mahala_xtreme.loc['Cifar10', 'y_binary']
-    ybinary_xood_mahala_pen_knn_log_sq_cifar10 = incorrect_indices_table_xood_mahala_pen_knn_log_sq.loc['Cifar10', 'y_binary']
+    # ybinary_knn_cifar10 = incorrect_indices_table_knn_pen.loc['Cifar10', 'y_binary']
+    # ybinary_mahala_cifar10 = incorrect_indices_table_mahala_xtreme.loc['Cifar10', 'y_binary']
+    # ybinary_xood_mahala_pen_knn_log_sq_cifar10 = incorrect_indices_table_xood_mahala_pen_knn_log_sq.loc['Cifar10', 'y_binary']
     
-    mcnemar_knn_with_comb =mcnemar_test(ybinary_knn_cifar10,ybinary_xood_mahala_pen_knn_log_sq_cifar10)
-    print("flag 1.7 mcnemar_knn_with_comb :",mcnemar_knn_with_comb)
+    with open('incorrect_indices_table_knn_pen.pickle', 'wb') as handle:
+        pickle.dump(incorrect_indices_table_knn_pen, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    
+    with open('incorrect_indices_table_xood_mahala_pen_knn_log_sq.pickle', 'wb') as handle:
+        pickle.dump(incorrect_indices_table_xood_mahala_pen_knn_log_sq, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    
+    get_mcnemar_for_all_ood_data(dataset,incorrect_indices_table_knn_pen, incorrect_indices_table_xood_mahala_pen_knn_log_sq)
+    print("flag 1.3 finished")
+    
+    # with open('ybinary_knn_cifar10.pickle', 'wb') as handle:
+    #     pickle.dump(ybinary_knn_cifar10, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    
+    # with open('ybinary_xood_mahala_pen_knn_log_sq_cifar10.pickle', 'wb') as handle:
+    #     pickle.dump(ybinary_xood_mahala_pen_knn_log_sq_cifar10, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
     print("1.32 saving done")
+
     
     # =============================================================================
     #     Pearson Coefficient
@@ -872,11 +920,11 @@ if __name__ == "__main__":
     start_time = time.time()
     
     # sys.stdout = open("console_output_mnist_single_ood.txt", "w")
-    test_ood("mnist", "lenet", 0.5)
+    # test_ood("mnist", "lenet", 0.5)
     # test_ood("cifar10", "resnet", 0.5)
 
     # test_ood("cifar100", "resnet", 0.5)
-    # test_ood("document", "resnet50_docu", 0.5)
+    test_ood("document", "resnet50_docu", 0.5)
 
     # test_ood("imagenet", "resnet50", 0.5)
     # for i in [0.7]:

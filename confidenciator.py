@@ -135,7 +135,7 @@ class FeatureExtractor(nn.Module):
         output = self.model(x)
         return output, self._features
     
-    def predict(self, images):   # predict_openood version
+    def predict_openood(self, images):   # predict_openood version
         """ 
         receives an array of (5000,3,32,32) size (for cifar10)
         returns output_np and features
@@ -190,7 +190,7 @@ class FeatureExtractor(nn.Module):
         labels_np = torch.cat(labels).cpu().detach().numpy()
         return labels_np, output_np, features
 
-    def predict_knn(self, images):   # predict_knn_openood version
+    def predict_knn_openood(self, images):   # predict_knn_openood version
         print("confidenciator.py  ==> FeatureExtractor.predict_knn()")
         print("predict_knn() openood version called")
 
@@ -240,7 +240,7 @@ class FeatureExtractor(nn.Module):
         return output if len(output) == 0 else torch.cat(output), self.knn_features
 
     # predict_docu
-    def predict_docu(self, images):   # predict_docu version (predict function for document data)
+    def predict(self, images):   # predict_docu version (predict function for document data)
         """ 
         receives an array of (5000,3,32,32) size (for cifar10)
         returns output_np and features
@@ -306,7 +306,7 @@ class FeatureExtractor(nn.Module):
     
     
 
-    def predict_knn_docu(self, images):  # predict_knn_docu version (predict_knn function for document data)
+    def predict_knn(self, images):  # predict_knn_docu version (predict_knn function for document data)
         print("confidenciator.py  ==> FeatureExtractor.predict_knn()")
         print("predict_knn() document version called")
 
