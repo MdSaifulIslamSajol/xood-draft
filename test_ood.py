@@ -7,13 +7,14 @@ import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 from sklearn.metrics import roc_auc_score, det_curve, average_precision_score, roc_curve
+from sklearn.metrics import confusion_matrix, accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
 from sklearn.metrics import roc_auc_score, accuracy_score
 
 from tensorflow.keras.datasets import cifar10, mnist
 from sklearn import preprocessing
 
 from confidenciator import Confidenciator, split_features
-from data import distorted, calibration, out_of_dist, load_data, load_svhn_data, imagenet_validation, save_missing_indices_images_in_folder
+from data import distorted, calibration, out_of_dist, load_data, load_svhn_data, imagenet_validation, save_missing_indices_images_in_folder,save_missing_document_indices_images_in_folder
 import data
 from utils import binary_class_hist, df_to_pdf
 from models.load import load_model
@@ -35,6 +36,88 @@ def convert_seconds(seconds):
     seconds %= 60
     return f"{hours} hours, {minutes} minutes, {seconds} seconds"
 
+def compute_confusion_metrix(in_dist, out_dist,dataset_name,featuretester_method):
+    #=#
+    print("compute_confusion_metrix()")
+    print("flag 1.27 featuretester_method  :",featuretester_method)
+    print("flag 1.27 dataset_name  :",dataset_name)
+    print("np.shape(in_dist): ",np.shape(in_dist))
+    print("np.shape(out_dist): ",np.shape(out_dist))
+    # print("(in_dist): ",in_dist )
+    # print("(out_dist): ",out_dist )
+    y_true = np.concatenate([np.ones(len(in_dist)), np.zeros(len(out_dist))])
+    y_pred = np.concatenate([in_dist, out_dist])
+    print("np.shape(y_true): ",np.shape(y_true))
+    print("np.shape(y_pred): ",np.shape(y_pred))
+    # print("(y_true): ",y_true)
+    # print("(y_pred): ",y_pred)
+    
+    optimal_threshold = calculate_optimal_threshold(y_true,y_pred,dataset_name,featuretester_method)
+    
+    # Convert the predicted scores to binary predictions using a threshold of 0.5
+    # Convert probabilities to binary predictions
+    y_pred_binary = np.where(y_pred >= optimal_threshold, 1, 0)
+    # y_pred_binary = np.where(y_pred >= optimal_threshold, 1, 0)
+    
+    
+    # compute confusion metrix only for ood daata
+    
+    # Compute confusion matrix
+    y_true_ood = np.zeros(len(out_dist))
+    y_pred_ood = out_dist
+    y_pred_ood_binary = np.where(y_pred_ood >= optimal_threshold, 1, 0)
+    # cm = confusion_matrix(y_true, y_pred_binary)
+    print("flag 1.28 np.shape(y_true_ood): ",np.shape(y_true_ood))
+    print("flag 1.28 np.shape(y_pred_ood): ",np.shape(y_pred_ood))
+    cm = confusion_matrix(y_true_ood, y_pred_ood_binary)
+    
+    tn = cm[0][0]  # True Negatives
+    fp = cm[0][1]  # False Positives
+    fn = cm[1][0]  # False Negatives
+    tp = cm[1][1]  # True Positives
+    # tn, fp, fn, tp = cm.ravel()
+    
+    # Compute other performance metrics
+    accuracy = accuracy_score(y_true, y_pred_binary)
+    precision = precision_score(y_true, y_pred_binary)
+    recall = recall_score(y_true, y_pred_binary)
+    f1 = f1_score(y_true, y_pred_binary)
+    tpr = recall
+    fpr = fp / (fp + tn)
+    roc_auc = roc_auc_score(y_true, y_pred)
+    
+    # Print the results
+    print("\nflag 1.27 Confusion Matrix:")
+    print("cm :",cm)
+    print("True Negatives:", tn)
+    print("False Positives:", fp)
+    print("False Negatives:", fn)
+    print("True Positives:", tp)
+    print("Accuracy:", accuracy)
+    print("Precision:", precision)
+    print("Recall:", recall)
+    print("F1 Score:", f1)
+    print("TPR (Sensitivity):", tpr)
+    print("FPR (1 - Specificity):", fpr)
+    print("AUC-ROC:", roc_auc)
+    
+    cm_scores = pd.Series({
+        "Testimages": len(out_dist),
+        "True Negatives": tn,
+        "False Positives": fp,
+        "False Negatives": fn,
+        "True Positive": tp,
+        "Accuracy": accuracy,
+        "Precision": precision,
+        "Recall": recall,
+        "F1 Score": f1,
+        "TPR (Sensitivity)": tpr,
+        "FPR (1 - Specificity)": fpr,
+        "AUC-ROC": roc_auc,
+    })
+    
+    return cm_scores
+
 def taylor_scores(in_dist, out_dist,dataset_name,featuretester_method):
     print("\ntest_ood.py ==> taylor_scores()")
     print("featuretester_method 1.2 :",featuretester_method)
@@ -54,6 +137,7 @@ def taylor_scores(in_dist, out_dist,dataset_name,featuretester_method):
     det_err = np.min((fnr + fpr) / 2)
     fpr, tpr, thr = roc_curve(y_true, y_pred)
     fpr95_sk = fpr[np.argmax(tpr >= .95)]
+    
     scores = pd.Series({
         "FPR (95% TPR)": fpr95_sk,
         "Detection Error": det_err,
@@ -352,6 +436,9 @@ class FeatureTester:
         pred["All"] = np.concatenate(list(pred.values()))
         print("Until Taylor table everything is good")
         
+        # ==========================
+        # compute_taylor_scores
+        # ==========================
         featuretester_method = name
         table = pd.DataFrame.from_dict(
             {name: taylor_scores(map_pred(pred_clean), map_pred(p),name,featuretester_method) for name, p in pred.items()}, orient="index")
@@ -368,11 +455,27 @@ class FeatureTester:
             table.to_csv(self.path / f"summary_correct_{name}.csv")
             df_to_pdf(table, decimals=4, path=self.path /
                       f"summary_correct_{name}.pdf", vmin=0, percent=True)
-            
+        
+        # ========================================
+        # get_indices of wrongly classified images
+        # ========================================
         incorrect_indices_table = pd.DataFrame.from_dict(
             {name: get_incorrect_indices(map_pred(pred_clean), map_pred(p),name,featuretester_method) for name, p in pred.items()}, orient="index")   
         
         print("flag 1.81 incorrect_indices_table :",incorrect_indices_table)
+        
+        # ==========================
+        # compute_confusion_metrix scores
+        # ==========================
+        cm_table = pd.DataFrame.from_dict(
+            {name: compute_confusion_metrix(map_pred(pred_clean), map_pred(p),name,featuretester_method) for name, p in pred.items()}, orient="index")
+        
+        cm_table.to_csv(self.path / f"confusion_metrix_summary_{name}.csv")
+        # df_to_pdf(cm_table, decimals=4, path=self.path /
+        #           f"confusion_metrix_summary_{name}.pdf", vmin=0, percent=True)
+        # self.hist_plot(pred, pred_clean, method_name)
+        print("confusion_metrix_table name 1.28", name)
+        
         return incorrect_indices_table
         
     def create_summary(self, f, name="", corr=False):
@@ -804,9 +907,11 @@ def test_ood(dataset, model, alpha):
     #         ft_mahala_pen.conf.mahala_mean, ft_knn_xood.conf.knn_mean, ft_mahala_pen.conf.mahala_std, ft_knn_xood.conf.knn_std, ft_knn_xood.conf.knn_n)
     # ft_knn_xood.taylor_table(pred_n_log_m_pen_knn_xood, pred_n_clean_log_m_pen_knn_xood, "pen-mahala-xood-knn-n-log","normalized_log_probability")
     
+    
     # =============================================================================
-    #     save_missing_indices_images_in_folder
+    #     save_missing_indices_ of cifar10 images_in_folder 
     # =============================================================================
+    
     # incorrect_indices_knn_cifar10 = incorrect_indices_table_knn_pen.loc['Cifar10', 'incorrect_indices']
     # incorrect_indices_mahala_cifar10 = incorrect_indices_table_mahala_xtreme.loc['Cifar10', 'incorrect_indices']
     # incorrect_indices_xood_mahala_pen_knn_log_sq_cifar10 = incorrect_indices_table_xood_mahala_pen_knn_log_sq.loc['Cifar10', 'incorrect_indices']
@@ -825,38 +930,67 @@ def test_ood(dataset, model, alpha):
     # comb_sq_log_only = comb_sq_log- common_indices # len(list(comb_sq_log_only)) =31
     
     # missing_indices = knn_only - comb_sq_log_only
-    # save_missing_indices_images_in_folder(list(missing_indices),"missing_indices" )
+    # save_missing_indices_images_in_folder(list(missing_indices),"missing_indices_cifar10" )
     
-       
+    # ========================= #
+    
     # # missing_indices = set(incorrect_indices_xood_mahala_pen_knn_log_sq_cifar10) - set(incorrect_indices_knn_cifar10)
     
     # # save_missing_indices_images_in_folder(list(incorrect_indices_knn_cifar10),"incorrect_indices_knn_cifar10" )
     # # save_missing_indices_images_in_folder(list(incorrect_indices_mahala_cifar10),"incorrect_indices_mahala_cifar10" )
     # # save_missing_indices_images_in_folder(list(incorrect_indices_xood_mahala_pen_knn_log_sq_cifar10),"incorrect_indices_xood_mahala_pen_knn_log_sq_cifar10" )
     
+    
+    # =============================================================================
+    #     save_missing_indices_ of document images_in_folder 
+    # =============================================================================
+    
+    incorrect_indices_knn_document = incorrect_indices_table_knn_pen.loc['Rvl_Cdip_O', 'incorrect_indices']
+    incorrect_indices_mahala_document = incorrect_indices_table_mahala_xtreme.loc['Rvl_Cdip_O', 'incorrect_indices']
+    incorrect_indices_xood_mahala_pen_knn_log_sq_document = incorrect_indices_table_xood_mahala_pen_knn_log_sq.loc['Rvl_Cdip_O', 'incorrect_indices']
+
+    print("len(incorrect_indices_knn_document)  :",len(incorrect_indices_knn_document))
+    print("len(incorrect_indices_mahala_document)  :",len(incorrect_indices_mahala_document))
+    print("len(incorrect_indices_xood_mahala_pen_knn_log_sq_document)  :",len(incorrect_indices_xood_mahala_pen_knn_log_sq_document))
+ 
+    
+    knn= set(incorrect_indices_knn_document)    # len(list(knn)) = 
+    comb_sq_log = set(incorrect_indices_xood_mahala_pen_knn_log_sq_document)  # len(list(knn)) = 
+    common_indices = knn.intersection(comb_sq_log)  # len(list(common_indices))=
+    
+    # we are removing common indices which are wrongly classified by both knn and comb_log_sq
+    knn_only = knn- common_indices  # len(list(knn_only)) =79
+    comb_sq_log_only = comb_sq_log- common_indices # len(list(comb_sq_log_only)) = 39
+    
+    
+    print("flag 1.32 len(knn_only)  :",len(knn_only))  
+    print("flag 1.32 len(comb_sq_log_only)  :",len(comb_sq_log_only))
+    
+    missing_indices = knn_only - comb_sq_log_only
+    save_missing_document_indices_images_in_folder(list(missing_indices),"missing_indices_docu" )
     # =============================================================================
     #     mcnemar test 
     # =============================================================================
-    # ybinary_knn_cifar10 = incorrect_indices_table_knn_pen.loc['Cifar10', 'y_binary']
-    # ybinary_mahala_cifar10 = incorrect_indices_table_mahala_xtreme.loc['Cifar10', 'y_binary']
-    # ybinary_xood_mahala_pen_knn_log_sq_cifar10 = incorrect_indices_table_xood_mahala_pen_knn_log_sq.loc['Cifar10', 'y_binary']
+    # # ybinary_knn_cifar10 = incorrect_indices_table_knn_pen.loc['Cifar10', 'y_binary']
+    # # ybinary_mahala_cifar10 = incorrect_indices_table_mahala_xtreme.loc['Cifar10', 'y_binary']
+    # # ybinary_xood_mahala_pen_knn_log_sq_cifar10 = incorrect_indices_table_xood_mahala_pen_knn_log_sq.loc['Cifar10', 'y_binary']
     
-    with open('incorrect_indices_table_knn_pen.pickle', 'wb') as handle:
-        pickle.dump(incorrect_indices_table_knn_pen, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    # with open('incorrect_indices_table_knn_pen.pickle', 'wb') as handle:
+    #     pickle.dump(incorrect_indices_table_knn_pen, handle, protocol=pickle.HIGHEST_PROTOCOL)
     
-    with open('incorrect_indices_table_xood_mahala_pen_knn_log_sq.pickle', 'wb') as handle:
-        pickle.dump(incorrect_indices_table_xood_mahala_pen_knn_log_sq, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    # with open('incorrect_indices_table_xood_mahala_pen_knn_log_sq.pickle', 'wb') as handle:
+    #     pickle.dump(incorrect_indices_table_xood_mahala_pen_knn_log_sq, handle, protocol=pickle.HIGHEST_PROTOCOL)
     
-    get_mcnemar_for_all_ood_data(dataset,incorrect_indices_table_knn_pen, incorrect_indices_table_xood_mahala_pen_knn_log_sq)
-    print("flag 1.3 finished")
+    # get_mcnemar_for_all_ood_data(dataset,incorrect_indices_table_knn_pen, incorrect_indices_table_xood_mahala_pen_knn_log_sq)
+    # print("flag 1.3 finished")
     
-    # with open('ybinary_knn_cifar10.pickle', 'wb') as handle:
-    #     pickle.dump(ybinary_knn_cifar10, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    # # with open('ybinary_knn_cifar10.pickle', 'wb') as handle:
+    # #     pickle.dump(ybinary_knn_cifar10, handle, protocol=pickle.HIGHEST_PROTOCOL)
     
-    # with open('ybinary_xood_mahala_pen_knn_log_sq_cifar10.pickle', 'wb') as handle:
-    #     pickle.dump(ybinary_xood_mahala_pen_knn_log_sq_cifar10, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    # # with open('ybinary_xood_mahala_pen_knn_log_sq_cifar10.pickle', 'wb') as handle:
+    # #     pickle.dump(ybinary_xood_mahala_pen_knn_log_sq_cifar10, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-    print("1.32 saving done")
+    # print("1.32 saving done")
 
     
     # =============================================================================
@@ -919,7 +1053,7 @@ if __name__ == "__main__":
     
     start_time = time.time()
     
-    # sys.stdout = open("console_output_mnist_single_ood.txt", "w")
+    # sys.stdout = open("console_output_mnist.txt", "w")
     # test_ood("mnist", "lenet", 0.5)
     # test_ood("cifar10", "resnet", 0.5)
 

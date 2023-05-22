@@ -29,7 +29,7 @@ from OpenOOD.openood_id_ood_and_model_cifar10 import id_dataloader_from_openood_
 from OpenOOD.openood_id_ood_and_model_cifar100 import id_dataloader_from_openood_repo_cifar100 , ood_dataloader_from_openood_repo_cifar100
 from OpenOOD.openood_id_ood_and_model_mnist import id_dataloader_from_openood_repo_mnist , ood_dataloader_from_openood_repo_mnist
 from OpenOOD.openood_id_ood_and_model_imagenet import id_dataloader_from_openood_repo_imagenet , ood_dataloader_from_openood_repo_imagenet
-from document_id_ood_n_model_loader import load_document_id_data, load_document_ood_data
+from document_id_ood_n_model_loader import load_document_id_data, load_document_ood_data,load_document_rvl_cdip_o_CustomDataset
 
 img_shape = (32, 32, 3)
 imagenet_transform = torchvision.transforms.Compose([
@@ -1423,6 +1423,9 @@ def save_missing_indices_images_in_folder(missing_indices, folder_name):
     print("save_missing_indices_images_in_folder()")
 
     # Convert the NumPy array to a Python list
+    # ood_datasets = load_document_ood_data()
+    # testloader = ood_datasets["rvl_cdip_o"]
+    
     ood_datasets = out_of_dict_from_openood_for_mnist()
     testloader = ood_datasets["cifar10"]
         
@@ -1449,7 +1452,40 @@ def save_missing_indices_images_in_folder(missing_indices, folder_name):
             plt.imsave(f'{directory}/missing_image_{index}.png', image_array)
     print("-- indices images saved")
             
+def save_missing_document_indices_images_in_folder(missing_indices, folder_name):
+    print("save_missing_document_indices_images_in_folder()")
+
+    # Convert the NumPy array to a Python list
+    ood_datasets = load_document_ood_data()
+    testloader = ood_datasets["rvl_cdip_o"]
     
+    # ood_datasets = out_of_dict_from_openood_for_mnist()
+    # testloader = ood_datasets["cifar10"]
+        
+    missing_indices = [int(x) for x in missing_indices]
+    # random.seed(1234)
+    # missing_indices= random.sample(missing_indices, 5)
+    # print(missing_indices)
+    # Create the directory for saving missing images if it doesn't exist
+    directory = os.path.join('/home/saiful/confidence-magesh_MR/confidence-magesh/missing_images', folder_name)
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+    
+    # Convert missing_indices to a set for faster lookup
+    missing_indices_set = set(missing_indices)
+    missing_images = []
+
+    for index in missing_indices_set:
+        
+        rvl_cdip_o_custom_dataset = load_document_rvl_cdip_o_CustomDataset()
+        image = rvl_cdip_o_custom_dataset[index]
+
+        # image = image_tensor[index]
+        image = image.numpy()
+        # Convert to numpy array and normalize pixel values to [0,1]
+        image_array = (image.transpose(1, 2, 0) - image.min()) / (image.max() - image.min())
+        plt.imsave(f'{directory}/missing_image_{index}.png', image_array)
+    print("-- indices images saved")
 
 if __name__ == "__main__":
     out_of_dict_from_openood_for_imagenet()

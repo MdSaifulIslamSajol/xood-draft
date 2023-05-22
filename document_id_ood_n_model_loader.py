@@ -31,9 +31,9 @@ from torch.utils.data import Dataset
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print('device:', device)
 batchsize=32
-num_train_samples= 319837  #319837
-num_val_samples= 39995 #39995
-num_test_samples= 39996   #39996
+num_train_samples= 1000  #319837
+num_val_samples= 500 #39995
+num_test_samples= 500   #39996
 
 def load_document_id_data():
     print("document_id_ood_n_model_loader.py =>  load_document_id_data()")
@@ -181,10 +181,10 @@ def load_document_ood_data():
     ])
 
     dataset_rvl_cdip_n = CustomDataset(data_dir=data_path_rvl_cdip_n, transform=transform)
-    rvl_cdip_n_loader = DataLoader(dataset_rvl_cdip_n, batch_size=32, shuffle=True)
+    rvl_cdip_n_loader = DataLoader(dataset_rvl_cdip_n, batch_size=32, shuffle=False)
 
     dataset_rvl_cdip_o = CustomDataset(data_dir=data_path_rvl_cdip_o, transform=transform)
-    rvl_cdip_o_loader = DataLoader(dataset_rvl_cdip_o, batch_size=32, shuffle=True)
+    rvl_cdip_o_loader = DataLoader(dataset_rvl_cdip_o, batch_size=32, shuffle=False)
     
     print('len(rvl_cdip_n_loader.dataset):',len(rvl_cdip_n_loader.dataset))
     print('len(rvl_cdip_o_loader.dataset):',len(rvl_cdip_o_loader.dataset))
@@ -196,6 +196,38 @@ def load_document_ood_data():
     }
     return ood_datasets
 
+def load_document_rvl_cdip_o_CustomDataset():
+    print("document_id_ood_n_model_loader.py =>  load_document_ood_data():")
+    # Define the path to the folder containing the images
+    data_path_rvl_cdip_n = "/data/saiful/rvl-cdip-ood/rvl-cdip-ood/RVL-CDIP-N/"
+    data_path_rvl_cdip_o = "/data/saiful/rvl-cdip-ood/rvl-cdip-ood/RVL-CDIP-O/"
+
+    transform = transforms.Compose([
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
+        transforms.ToTensor(),
+        transforms.Normalize(0.9199, 0.1853),
+        # transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+
+        # transforms.Normalize(mean=[0.485, 0.456, 0.406],
+        #                      std=[0.229, 0.224, 0.225])
+    ])
+
+    # dataset_rvl_cdip_n = CustomDataset(data_dir=data_path_rvl_cdip_n, transform=transform)
+    # rvl_cdip_n_loader = DataLoader(dataset_rvl_cdip_n, batch_size=32, shuffle=False)
+
+    dataset_rvl_cdip_o = CustomDataset(data_dir=data_path_rvl_cdip_o, transform=transform)
+    # rvl_cdip_o_loader = DataLoader(dataset_rvl_cdip_o, batch_size=32, shuffle=False)
+    
+    # print('len(rvl_cdip_n_loader.dataset):',len(rvl_cdip_n_loader.dataset))
+    # print('len(rvl_cdip_o_loader.dataset):',len(rvl_cdip_o_loader.dataset))
+    
+
+    # ood_datasets = {
+    #     "rvl_cdip_n" : rvl_cdip_n_loader,
+    #     "rvl_cdip_o" : rvl_cdip_o_loader,
+    # }
+    return dataset_rvl_cdip_o
 # =============================================================================
 # load pretrained model
 # =============================================================================
@@ -239,4 +271,8 @@ def load_resnet50_model_for_document_dataset():
 # calling ood dataloader
 # y = load_document_ood_data()
 # # calling trained resnet50 model 
-m , t=load_resnet50_model_for_document_dataset()
+
+# m , t=load_resnet50_model_for_document_dataset()
+
+
+a=load_document_rvl_cdip_o_CustomDataset()
