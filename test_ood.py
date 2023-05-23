@@ -100,6 +100,7 @@ def compute_confusion_metrix(in_dist, out_dist,dataset_name,featuretester_method
     print("TPR (Sensitivity):", tpr)
     print("FPR (1 - Specificity):", fpr)
     print("AUC-ROC:", roc_auc)
+    print("Optimal Threshold:", optimal_threshold)
     
     cm_scores = pd.Series({
         "Testimages": len(out_dist),
@@ -114,6 +115,8 @@ def compute_confusion_metrix(in_dist, out_dist,dataset_name,featuretester_method
         "TPR (Sensitivity)": tpr,
         "FPR (1 - Specificity)": fpr,
         "AUC-ROC": roc_auc,
+        "Optimal Threshold": optimal_threshold,
+        
     })
     
     return cm_scores
@@ -278,7 +281,8 @@ def get_incorrect_indices(in_dist, out_dist,dataset_name,featuretester_method):
     
     incorrect_indices = pd.Series({
         "incorrect_indices": incorrect_indices,
-        "y_binary":y_binary
+        "y_binary":y_binary,
+        "y_pred_ood":y_pred_ood,
     })
     return incorrect_indices #, y_binary
 
@@ -908,6 +912,20 @@ def test_ood(dataset, model, alpha):
     # ft_knn_xood.taylor_table(pred_n_log_m_pen_knn_xood, pred_n_clean_log_m_pen_knn_xood, "pen-mahala-xood-knn-n-log","normalized_log_probability")
     
     
+    
+    # =============================================================================
+    #     saving incorrect_indices_table as pickle file
+    # =============================================================================
+    with open('incorrect_indices_table_knn_pen'+"_"+str(dataset)+'_.pickle', 'wb') as handle:
+        pickle.dump(incorrect_indices_table_knn_pen, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        
+    with open('incorrect_indices_table_mahala_xtreme'+"_"+str(dataset)+'_.pickle', 'wb') as handle:
+        pickle.dump(incorrect_indices_table_mahala_xtreme, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        
+    with open('incorrect_indices_table_xood_mahala_pen_knn_log_sq'+"_"+str(dataset)+'_.pickle', 'wb') as handle:
+        pickle.dump(incorrect_indices_table_xood_mahala_pen_knn_log_sq, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+
     # =============================================================================
     #     save_missing_indices_ of cifar10 images_in_folder 
     # =============================================================================
@@ -932,7 +950,7 @@ def test_ood(dataset, model, alpha):
     # missing_indices = knn_only - comb_sq_log_only
     # save_missing_indices_images_in_folder(list(missing_indices),"missing_indices_cifar10" )
     
-    # ========================= #
+    # ##========================= #
     
     # # missing_indices = set(incorrect_indices_xood_mahala_pen_knn_log_sq_cifar10) - set(incorrect_indices_knn_cifar10)
     
@@ -968,6 +986,36 @@ def test_ood(dataset, model, alpha):
     
     missing_indices = knn_only - comb_sq_log_only
     save_missing_document_indices_images_in_folder(list(missing_indices),"missing_indices_docu" )
+    
+        # ====================================================================================
+        #     saving y_pred values of incorrect_indices of document for each of the FeatureTester instance   
+        # ====================================================================================
+        
+    incorrect_indices_table_knn_pen_rvl_cdip_o =incorrect_indices_table_knn_pen.loc['Rvl_Cdip_O']
+    y_pred_list_knn_pen_rvl_cdip_o = list(incorrect_indices_table_knn_pen_rvl_cdip_o.loc['y_pred_ood'])
+        
+    incorrect_indices_table_xood_mahala_pen_knn_log_sq_rvl_cdip_o =incorrect_indices_table_xood_mahala_pen_knn_log_sq.loc['Rvl_Cdip_O']
+    y_pred_list_xood_mahala_pen_knn_log_sq_rvl_cdip_o = list(incorrect_indices_table_xood_mahala_pen_knn_log_sq_rvl_cdip_o.loc['y_pred_ood'])
+    
+    incorrect_indices_table_mahala_xtreme_rvl_cdip_o =incorrect_indices_table_mahala_xtreme.loc['Rvl_Cdip_O']
+    y_pred_list_mahala_xtreme_rvl_cdip_o = list(incorrect_indices_table_mahala_xtreme_rvl_cdip_o.loc['y_pred_ood'])
+    
+    index_list= list(missing_indices)
+    
+    y_pred_knn_pen_rvl_cdip_o = [y_pred_list_knn_pen_rvl_cdip_o[i] for i in index_list]
+    y_pred_xood_mahala_pen_knn_log_sq_rvl_cdip_o = [y_pred_list_xood_mahala_pen_knn_log_sq_rvl_cdip_o[i] for i in index_list]
+    y_pred_mahala_xtreme_rvl_cdip_o = [y_pred_list_mahala_xtreme_rvl_cdip_o[i] for i in index_list]
+    
+    data = {
+        'index_list': index_list,
+        'y_pred_knn_pen_rvl_cdip_o': y_pred_knn_pen_rvl_cdip_o,
+        'y_pred_xood_mahala_pen_knn_log_sq_rvl_cdip_o': y_pred_xood_mahala_pen_knn_log_sq_rvl_cdip_o,
+        'y_pred_mahala_xtreme_rvl_cdip_o': y_pred_mahala_xtreme_rvl_cdip_o
+    }
+    
+    df = pd.DataFrame(data)
+    df.to_csv('y_pred_values_of_missing_indices.csv', index=True)
+    
     # =============================================================================
     #     mcnemar test 
     # =============================================================================

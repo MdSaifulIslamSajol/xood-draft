@@ -568,10 +568,10 @@ def out_of_dist(dataset_name, debug=False):
         datasets.update({
             "Cifar10": mnist_ood["cifar10"] ,
             "NonMNIST": mnist_ood["notmnist"],
-            "FashionMNIST": mnist_ood["fashionmnist"],
-            "Tin": mnist_ood["tin"],
-            "Places": mnist_ood["places"],
-            "Texture": mnist_ood["texture"],
+            # "FashionMNIST": mnist_ood["fashionmnist"],
+            # "Tin": mnist_ood["tin"],
+            # "Places": mnist_ood["places"],
+            # "Texture": mnist_ood["texture"],
         })
     elif dataset_name == "cifar10":
         cifar10_ood = out_of_dict_from_openood_for_cifar10()

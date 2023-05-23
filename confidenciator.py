@@ -135,7 +135,7 @@ class FeatureExtractor(nn.Module):
         output = self.model(x)
         return output, self._features
     
-    def predict_openood(self, images):   # predict_openood version
+    def predict_openood(self, images):   # replace the predict with predict_openood to run with openood datasets
         """ 
         receives an array of (5000,3,32,32) size (for cifar10)
         returns output_np and features
@@ -191,6 +191,7 @@ class FeatureExtractor(nn.Module):
         return labels_np, output_np, features
 
     def predict_knn_openood(self, images):   # predict_knn_openood version
+    
         print("confidenciator.py  ==> FeatureExtractor.predict_knn()")
         print("predict_knn() openood version called")
 
