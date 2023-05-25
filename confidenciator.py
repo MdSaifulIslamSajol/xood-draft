@@ -135,7 +135,8 @@ class FeatureExtractor(nn.Module):
         output = self.model(x)
         return output, self._features
     
-    def predict_openood(self, images):   # replace the predict with predict_openood to run with openood datasets
+    def predict(self, images):   # predict_openood
+        # replace the predict with predict_openood when running with document dataset
         """ 
         receives an array of (5000,3,32,32) size (for cifar10)
         returns output_np and features
@@ -156,6 +157,7 @@ class FeatureExtractor(nn.Module):
         features = {}
         with torch.no_grad():
             for i, data in enumerate(images):
+                
                 # print(f"Computing predictions: {i + 1}/{len(images)}             ", end="\r")
                 # print(" 
                 # print("data shape: ", data.keys())
@@ -184,13 +186,19 @@ class FeatureExtractor(nn.Module):
                     features = {key: [] for key in self._features.keys()}
                 for k in features.keys():
                     features[k].append(feat[k])
+                
+                # # Stop after a certain number of batches (e.g., 10)
+                # if i== 5:
+                #     break
+                    
             for k in features.keys():
                 features[k] = torch.cat(features[k]).cpu().detach().numpy()
         output_np = torch.cat(output).cpu().detach().numpy()
         labels_np = torch.cat(labels).cpu().detach().numpy()
         return labels_np, output_np, features
 
-    def predict_knn_openood(self, images):   # predict_knn_openood version
+    def predict_knn(self, images):  # predict_knn_openood
+        # replace the predict_knn with predict_knn_openood when running with document dataset
     
         print("confidenciator.py  ==> FeatureExtractor.predict_knn()")
         print("predict_knn() openood version called")
@@ -237,11 +245,19 @@ class FeatureExtractor(nn.Module):
                 
                 if out is not None:
                     output.append(out)
+                    
+                # # Stop after a certain number of batches (e.g., 10)
+                # if i== 5:
+                #     break
+                
             self.knn_features = np.concatenate(pen_features, axis=0)
         return output if len(output) == 0 else torch.cat(output), self.knn_features
 
-    # predict_docu
-    def predict(self, images):   # predict_docu version (predict function for document data)
+   
+    def predict_docu(self, images):   # predict_docu
+        # rename this function to  predict()  when running with document datasets
+        # keep the name predict_docu() if you are not using document dataset, rather using openood datsets
+        # predict_docu(self, images):
         """ 
         receives an array of (5000,3,32,32) size (for cifar10)
         returns output_np and features
@@ -307,7 +323,9 @@ class FeatureExtractor(nn.Module):
     
     
 
-    def predict_knn(self, images):  # predict_knn_docu version (predict_knn function for document data)
+    def predict_knn_docu(self, images):  # predict_knn_docu 
+    # rename this function to  predict_knn()  when running with document datasets
+    # keep the name to predict_knn_docu() if you are running openood dataset
         print("confidenciator.py  ==> FeatureExtractor.predict_knn()")
         print("predict_knn() document version called")
 

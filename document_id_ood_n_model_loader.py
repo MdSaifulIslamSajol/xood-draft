@@ -31,10 +31,12 @@ from torch.utils.data import Dataset
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print('device:', device)
 batchsize=32
-num_train_samples= 1000  #319837
-num_val_samples= 500 #39995
-num_test_samples= 500   #39996
+num_train_samples= 319837  #319837
+num_val_samples= 39995 #39995
+num_test_samples= 39996   #39996
 
+
+print(f"flag 1.65 The document dataset is now running with \n num_train_samples:{num_train_samples},\n num_val_samples:{num_val_samples},\n num_test_samples:{num_test_samples}"  )
 def load_document_id_data():
     print("document_id_ood_n_model_loader.py =>  load_document_id_data()")
 

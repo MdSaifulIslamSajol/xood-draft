@@ -16,6 +16,7 @@ from sklearn import preprocessing
 from confidenciator import Confidenciator, split_features
 from data import distorted, calibration, out_of_dist, load_data, load_svhn_data, imagenet_validation, save_missing_indices_images_in_folder,save_missing_document_indices_images_in_folder
 import data
+from data import save_missing_cifar10_indices_images_in_folder_for_mnist_id
 from utils import binary_class_hist, df_to_pdf
 from models.load import load_model
 import sys
@@ -57,8 +58,7 @@ def compute_confusion_metrix(in_dist, out_dist,dataset_name,featuretester_method
     # Convert the predicted scores to binary predictions using a threshold of 0.5
     # Convert probabilities to binary predictions
     y_pred_binary = np.where(y_pred >= optimal_threshold, 1, 0)
-    # y_pred_binary = np.where(y_pred >= optimal_threshold, 1, 0)
-    
+    # y_pred_binary = np.where(y_pred >= 0.5, 1, 0)
     
     # compute confusion metrix only for ood daata
     
@@ -70,6 +70,8 @@ def compute_confusion_metrix(in_dist, out_dist,dataset_name,featuretester_method
     print("flag 1.28 np.shape(y_true_ood): ",np.shape(y_true_ood))
     print("flag 1.28 np.shape(y_pred_ood): ",np.shape(y_pred_ood))
     cm = confusion_matrix(y_true_ood, y_pred_ood_binary)
+    
+    print("flag 1.29 cm: ",cm)
     
     tn = cm[0][0]  # True Negatives
     fp = cm[0][1]  # False Positives
@@ -197,8 +199,8 @@ def get_mcnemar_for_all_ood_data(id_dataset,df1,df2):
     for index in df1.index:
         a= df1.loc[index,'y_binary']
         b= df2.loc[index,'y_binary']
-        print("flag 1.21 a :",a)
-        print("flag 1.21 b :",b)
+        # print("flag 1.21 a :",a)
+        # print("flag 1.21 b :",b)
         mcnemar_test_dict[index] = mcnemar_test(a,b)
     
     # p_value, stat_value =mcnemar_test(ybinary_knn_cifar10,ybinary_xood_mahala_pen_knn_log_sq_cifar10)
@@ -261,7 +263,6 @@ def get_incorrect_indices(in_dist, out_dist,dataset_name,featuretester_method):
     # Convert the predicted scores to binary predictions using a threshold of 0.5
     # assuming for out_dist the probability shoule be less than optimal_threshold
     y_binary = y_pred_ood < optimal_threshold
-    
     
     num_true = np.count_nonzero(y_binary)
     num_false = y_binary.size - num_true
@@ -758,6 +759,11 @@ def test_ood(dataset, model, alpha):
         ft_knn_pen.conf.predict_knn_faiss, "open-ood-knn")
     incorrect_indices_table_knn_pen = ft_knn_pen.taylor_table(pred_knn_pen, pred_clean_knn_pen, "knn-penultimate-features-" + str(alpha), "knn")
 
+    # ================  %%  ====================
+    #     uncomment the following line to get the instances of other two methods
+    # ================= %%  ====================
+    
+    
     # print("\n\n==> c) Calculating Mahala on Penultimate layer values..")
     # ft_mahala_pen = FeatureTester(dataset, model, "mahala", "knn", extreme=False, pen=True)
     # pred_mahala_pen, pred_clean_mahala_pen = ft_mahala_pen.create_summary_combine(
@@ -765,22 +771,24 @@ def test_ood(dataset, model, alpha):
     # ft_mahala_pen.taylor_table(pred_mahala_pen, pred_clean_mahala_pen,
     #                         "mahala-penultimate-" + str(alpha), "mahala")
 
+
     # print("\n\n==> d) Calculating KNN on Extreme values..")
     # ft_knn_xood = FeatureTester(dataset, model, "knn", "knn", extreme=True, pen=False)
     # ft_knn_xood.fit_knn(test=False)
     # pred_knn_xood, pred_clean_knn_xood = ft_knn_xood.create_summary_combine(
     #     ft_knn_xood.conf.predict_knn_faiss, "open-ood-knn")
     # ft_knn_xood.taylor_table(pred_knn_xood, pred_clean_knn_xood, "knn-extreme-features-" + str(alpha), "knn")
-
-
-    # if (np.isnan(pred_knn)== True):
-    # if (pd.isna(pred_knn)== True):
+    
+    # ================= %%  ====================
+    
+    # # if (np.isnan(pred_knn)== True):
+    # # if (pd.isna(pred_knn)== True):
         
-    #     ft_knn.taylor_table(pred_knn, pred_clean_knn, "knn-penultimate-features-" + str(alpha), "knn")
-    # else:
-    #     print("flag It is failing ")
+    # #     ft_knn.taylor_table(pred_knn, pred_clean_knn, "knn-penultimate-features-" + str(alpha), "knn")
+    # # else:
+    # #     print("flag It is failing ")
 
-    # hist_plot_mahala_knn(pred_mahala,pred_knn,"mahala_knn")
+    # # hist_plot_mahala_knn(pred_mahala,pred_knn,"mahala_knn")
     
     # ==========================================
     #     
@@ -805,9 +813,10 @@ def test_ood(dataset, model, alpha):
     # # print(f" pred_clean_mahala 2.52: {pred_clean_mahala}")
     # # print(f" pred_clean_knn 2.52: {pred_clean_knn}")
     
-    # ==============
+    
+    # ==============  =  ================
     #  save pickles    
-    # ==============
+    # ==============  =  ================
     # with open('pred_mahala_xood_'+str(dataset)+'_.pickle', 'wb') as handle:
     #     pickle.dump(pred_mahala_xood, handle, protocol=pickle.HIGHEST_PROTOCOL)
         
@@ -837,11 +846,17 @@ def test_ood(dataset, model, alpha):
         
     # with open('pred_clean_knn_xood_'+str(dataset)+'_.pickle', 'wb') as handle:
     #     pickle.dump(pred_clean_knn_xood, handle, protocol=pickle.HIGHEST_PROTOCOL)
-    # ==============
+    
+    # ==============  =  ================
     #  save pickles done   
-    # ==============             
+    # ==============  =  ================            
 
 
+    # ===============================  ##  ==============================================
+    # combination of knn and mahala with extreme - penultimate features
+    # uncomment the following lines to get results for different combinations 
+    # ===============================  ##  ==============================================
+    
     # Mahala xood + KNN pen log probabilty
     # pred_log_m_xood_knn_pen = log_probability(pred_mahala_xood, pred_knn_pen, ft_knn_pen.conf.knn_n)
     # pred_clean_log_m_xood_knn_pen = log_probability(pred_clean_mahala_xood, pred_clean_knn_pen,ft_knn_pen.conf.knn_n)
@@ -911,6 +926,7 @@ def test_ood(dataset, model, alpha):
     #         ft_mahala_pen.conf.mahala_mean, ft_knn_xood.conf.knn_mean, ft_mahala_pen.conf.mahala_std, ft_knn_xood.conf.knn_std, ft_knn_xood.conf.knn_n)
     # ft_knn_xood.taylor_table(pred_n_log_m_pen_knn_xood, pred_n_clean_log_m_pen_knn_xood, "pen-mahala-xood-knn-n-log","normalized_log_probability")
     
+    # ===============================  ##  ==============================================
     
     
     # =============================================================================
@@ -927,118 +943,164 @@ def test_ood(dataset, model, alpha):
 
 
     # =============================================================================
-    #     save_missing_indices_ of cifar10 images_in_folder 
+    #     save_missing_indices_ of cifar10 (OOD) images_in_folder (ID- MNIST)
     # =============================================================================
     
-    # incorrect_indices_knn_cifar10 = incorrect_indices_table_knn_pen.loc['Cifar10', 'incorrect_indices']
-    # incorrect_indices_mahala_cifar10 = incorrect_indices_table_mahala_xtreme.loc['Cifar10', 'incorrect_indices']
-    # incorrect_indices_xood_mahala_pen_knn_log_sq_cifar10 = incorrect_indices_table_xood_mahala_pen_knn_log_sq.loc['Cifar10', 'incorrect_indices']
-
-    # print("len(incorrect_indices_knn_cifar10)  :",len(incorrect_indices_knn_cifar10))
-    # print("len(incorrect_indices_mahala_cifar10)  :",len(incorrect_indices_mahala_cifar10))
-    # print("len(incorrect_indices_xood_mahala_pen_knn_log_sq_cifar10)  :",len(incorrect_indices_xood_mahala_pen_knn_log_sq_cifar10))
- 
+    if (dataset== 'mnist'):
+        incorrect_indices_knn_cifar10 = incorrect_indices_table_knn_pen.loc['Cifar10', 'incorrect_indices']
+        incorrect_indices_mahala_cifar10 = incorrect_indices_table_mahala_xtreme.loc['Cifar10', 'incorrect_indices']
+        incorrect_indices_xood_mahala_pen_knn_log_sq_cifar10 = incorrect_indices_table_xood_mahala_pen_knn_log_sq.loc['Cifar10', 'incorrect_indices']
     
-    # knn= set(incorrect_indices_knn_cifar10)    # len(list(knn)) = 581
-    # comb_sq_log = set(incorrect_indices_xood_mahala_pen_knn_log_sq_cifar10)  # len(list(knn)) = 80    581
-    # common_indices = knn.intersection(comb_sq_log)  # len(list(common_indices))=49
-    
-    # # we are removing common indices which are wrongly classified by both knn and comb_log_sq
-    # knn_only = knn- common_indices  # len(list(knn_only)) =532
-    # comb_sq_log_only = comb_sq_log- common_indices # len(list(comb_sq_log_only)) =31
-    
-    # missing_indices = knn_only - comb_sq_log_only
-    # save_missing_indices_images_in_folder(list(missing_indices),"missing_indices_cifar10" )
-    
-    # ##========================= #
-    
-    # # missing_indices = set(incorrect_indices_xood_mahala_pen_knn_log_sq_cifar10) - set(incorrect_indices_knn_cifar10)
-    
-    # # save_missing_indices_images_in_folder(list(incorrect_indices_knn_cifar10),"incorrect_indices_knn_cifar10" )
-    # # save_missing_indices_images_in_folder(list(incorrect_indices_mahala_cifar10),"incorrect_indices_mahala_cifar10" )
-    # # save_missing_indices_images_in_folder(list(incorrect_indices_xood_mahala_pen_knn_log_sq_cifar10),"incorrect_indices_xood_mahala_pen_knn_log_sq_cifar10" )
-    
+        print("len(incorrect_indices_knn_cifar10)  :",len(incorrect_indices_knn_cifar10))
+        print("len(incorrect_indices_mahala_cifar10)  :",len(incorrect_indices_mahala_cifar10))
+        print("len(incorrect_indices_xood_mahala_pen_knn_log_sq_cifar10)  :",len(incorrect_indices_xood_mahala_pen_knn_log_sq_cifar10))
+     
+        
+        knn= set(incorrect_indices_knn_cifar10)    # len(list(knn)) = 581
+        comb_sq_log = set(incorrect_indices_xood_mahala_pen_knn_log_sq_cifar10)  # len(list(knn)) = 80    581
+        common_indices = knn.intersection(comb_sq_log)  # len(list(common_indices))=49
+        
+        # we are removing common indices which are wrongly classified by both knn and comb_log_sq
+        knn_only = knn- common_indices  # len(list(knn_only)) =532
+        comb_sq_log_only = comb_sq_log- common_indices # len(list(comb_sq_log_only)) =31
+        
+        missing_indices = knn_only - comb_sq_log_only
+        save_missing_cifar10_indices_images_in_folder_for_mnist_id(list(missing_indices),"missing_indices_ood_cifar10__id_mnist", dataset )
+        
     
     # =============================================================================
     #     save_missing_indices_ of document images_in_folder 
     # =============================================================================
-    
-    incorrect_indices_knn_document = incorrect_indices_table_knn_pen.loc['Rvl_Cdip_O', 'incorrect_indices']
-    incorrect_indices_mahala_document = incorrect_indices_table_mahala_xtreme.loc['Rvl_Cdip_O', 'incorrect_indices']
-    incorrect_indices_xood_mahala_pen_knn_log_sq_document = incorrect_indices_table_xood_mahala_pen_knn_log_sq.loc['Rvl_Cdip_O', 'incorrect_indices']
-
-    print("len(incorrect_indices_knn_document)  :",len(incorrect_indices_knn_document))
-    print("len(incorrect_indices_mahala_document)  :",len(incorrect_indices_mahala_document))
-    print("len(incorrect_indices_xood_mahala_pen_knn_log_sq_document)  :",len(incorrect_indices_xood_mahala_pen_knn_log_sq_document))
- 
-    
-    knn= set(incorrect_indices_knn_document)    # len(list(knn)) = 
-    comb_sq_log = set(incorrect_indices_xood_mahala_pen_knn_log_sq_document)  # len(list(knn)) = 
-    common_indices = knn.intersection(comb_sq_log)  # len(list(common_indices))=
-    
-    # we are removing common indices which are wrongly classified by both knn and comb_log_sq
-    knn_only = knn- common_indices  # len(list(knn_only)) =79
-    comb_sq_log_only = comb_sq_log- common_indices # len(list(comb_sq_log_only)) = 39
-    
-    
-    print("flag 1.32 len(knn_only)  :",len(knn_only))  
-    print("flag 1.32 len(comb_sq_log_only)  :",len(comb_sq_log_only))
-    
-    missing_indices = knn_only - comb_sq_log_only
-    save_missing_document_indices_images_in_folder(list(missing_indices),"missing_indices_docu" )
-    
-        # ====================================================================================
-        #     saving y_pred values of incorrect_indices of document for each of the FeatureTester instance   
-        # ====================================================================================
+    if (dataset== 'document'):
         
-    incorrect_indices_table_knn_pen_rvl_cdip_o =incorrect_indices_table_knn_pen.loc['Rvl_Cdip_O']
-    y_pred_list_knn_pen_rvl_cdip_o = list(incorrect_indices_table_knn_pen_rvl_cdip_o.loc['y_pred_ood'])
+        incorrect_indices_knn_document = incorrect_indices_table_knn_pen.loc['Rvl_Cdip_O', 'incorrect_indices']
+        incorrect_indices_mahala_document = incorrect_indices_table_mahala_xtreme.loc['Rvl_Cdip_O', 'incorrect_indices']
+        incorrect_indices_xood_mahala_pen_knn_log_sq_document = incorrect_indices_table_xood_mahala_pen_knn_log_sq.loc['Rvl_Cdip_O', 'incorrect_indices']
+    
+        print("flag 1.32 len(incorrect_indices_knn_document)  :",len(incorrect_indices_knn_document))
+        print("flag 1.32 len(incorrect_indices_mahala_document)  :",len(incorrect_indices_mahala_document))
+        print("flag 1.32 len(incorrect_indices_xood_mahala_pen_knn_log_sq_document)  :",len(incorrect_indices_xood_mahala_pen_knn_log_sq_document))
+     
+        knn= set(incorrect_indices_knn_document)    # len(list(knn)) = 
+        comb_sq_log = set(incorrect_indices_xood_mahala_pen_knn_log_sq_document)  # len(list(knn)) = 
+        common_indices = knn.intersection(comb_sq_log)  # len(list(common_indices))=
         
-    incorrect_indices_table_xood_mahala_pen_knn_log_sq_rvl_cdip_o =incorrect_indices_table_xood_mahala_pen_knn_log_sq.loc['Rvl_Cdip_O']
-    y_pred_list_xood_mahala_pen_knn_log_sq_rvl_cdip_o = list(incorrect_indices_table_xood_mahala_pen_knn_log_sq_rvl_cdip_o.loc['y_pred_ood'])
+        # we are removing common indices which are wrongly classified by both knn and comb_log_sq
+        knn_only = knn- common_indices  # len(list(knn_only)) =79
+        comb_sq_log_only = comb_sq_log- common_indices # len(list(comb_sq_log_only)) = 39
+        
+        print("flag 1.32 len(knn_only)  :",len(knn_only))  
+        print("flag 1.32 len(comb_sq_log_only)  :",len(comb_sq_log_only))
+        
+        # indices_failed_by_knn =A = {1, 3, 7, 8, 13, 35}
+        # indices_failed_by_comb_sq_log =B = {8, 13, 17}
+        # indices_corrected_by_comb_sq_log  = A - B
+        # print(result)
+        
+        # missing indices -> indices corrected by com_sq_log method  but failed by knn
+        missing_indices = knn_only - comb_sq_log_only    
+        save_missing_document_indices_images_in_folder(list(missing_indices),"missing_indices_ood_rvl_cdip_o__id_document_2000images" )
+        
+            # ====================================================================================
+            #     saving y_pred values of incorrect_indices of document for each of the FeatureTester instance   
+            # ====================================================================================
+            
+        incorrect_indices_table_knn_pen_rvl_cdip_o =incorrect_indices_table_knn_pen.loc['Rvl_Cdip_O']
+        y_pred_list_knn_pen_rvl_cdip_o = list(incorrect_indices_table_knn_pen_rvl_cdip_o.loc['y_pred_ood'])
+            
+        incorrect_indices_table_xood_mahala_pen_knn_log_sq_rvl_cdip_o =incorrect_indices_table_xood_mahala_pen_knn_log_sq.loc['Rvl_Cdip_O']
+        y_pred_list_xood_mahala_pen_knn_log_sq_rvl_cdip_o = list(incorrect_indices_table_xood_mahala_pen_knn_log_sq_rvl_cdip_o.loc['y_pred_ood'])
+        
+        incorrect_indices_table_mahala_xtreme_rvl_cdip_o =incorrect_indices_table_mahala_xtreme.loc['Rvl_Cdip_O']
+        y_pred_list_mahala_xtreme_rvl_cdip_o = list(incorrect_indices_table_mahala_xtreme_rvl_cdip_o.loc['y_pred_ood'])
+        
+        index_list= list(missing_indices)
+        
+        y_pred_knn_pen_rvl_cdip_o = [y_pred_list_knn_pen_rvl_cdip_o[i] for i in index_list]
+        y_pred_xood_mahala_pen_knn_log_sq_rvl_cdip_o = [y_pred_list_xood_mahala_pen_knn_log_sq_rvl_cdip_o[i] for i in index_list]
+        y_pred_mahala_xtreme_rvl_cdip_o = [y_pred_list_mahala_xtreme_rvl_cdip_o[i] for i in index_list]
+        
+        data = {
+            'index_list': index_list,
+            'y_pred_knn_pen_rvl_cdip_o': y_pred_knn_pen_rvl_cdip_o,
+            'y_pred_xood_mahala_pen_knn_log_sq_rvl_cdip_o': y_pred_xood_mahala_pen_knn_log_sq_rvl_cdip_o,
+            'y_pred_mahala_xtreme_rvl_cdip_o': y_pred_mahala_xtreme_rvl_cdip_o
+        }
+        df = pd.DataFrame(data)
+        df.to_csv('y_pred_values_of_missing_indices_ood_rvl_cdip_o_id_document.csv', index=True)
+        
     
-    incorrect_indices_table_mahala_xtreme_rvl_cdip_o =incorrect_indices_table_mahala_xtreme.loc['Rvl_Cdip_O']
-    y_pred_list_mahala_xtreme_rvl_cdip_o = list(incorrect_indices_table_mahala_xtreme_rvl_cdip_o.loc['y_pred_ood'])
-    
-    index_list= list(missing_indices)
-    
-    y_pred_knn_pen_rvl_cdip_o = [y_pred_list_knn_pen_rvl_cdip_o[i] for i in index_list]
-    y_pred_xood_mahala_pen_knn_log_sq_rvl_cdip_o = [y_pred_list_xood_mahala_pen_knn_log_sq_rvl_cdip_o[i] for i in index_list]
-    y_pred_mahala_xtreme_rvl_cdip_o = [y_pred_list_mahala_xtreme_rvl_cdip_o[i] for i in index_list]
-    
-    data = {
-        'index_list': index_list,
-        'y_pred_knn_pen_rvl_cdip_o': y_pred_knn_pen_rvl_cdip_o,
-        'y_pred_xood_mahala_pen_knn_log_sq_rvl_cdip_o': y_pred_xood_mahala_pen_knn_log_sq_rvl_cdip_o,
-        'y_pred_mahala_xtreme_rvl_cdip_o': y_pred_mahala_xtreme_rvl_cdip_o
-    }
-    
-    df = pd.DataFrame(data)
-    df.to_csv('y_pred_values_of_missing_indices.csv', index=True)
     
     # =============================================================================
-    #     mcnemar test 
+    #     save_missing_indices_ of imagenet images_in_folder 
     # =============================================================================
-    # # ybinary_knn_cifar10 = incorrect_indices_table_knn_pen.loc['Cifar10', 'y_binary']
-    # # ybinary_mahala_cifar10 = incorrect_indices_table_mahala_xtreme.loc['Cifar10', 'y_binary']
-    # # ybinary_xood_mahala_pen_knn_log_sq_cifar10 = incorrect_indices_table_xood_mahala_pen_knn_log_sq.loc['Cifar10', 'y_binary']
+    if (dataset== 'imagenet'):
+        
+        incorrect_indices_knn_imagenet = incorrect_indices_table_knn_pen.loc['Species', 'incorrect_indices']
+        incorrect_indices_mahala_imagenet = incorrect_indices_table_mahala_xtreme.loc['Species', 'incorrect_indices']
+        incorrect_indices_xood_mahala_pen_knn_log_sq_imagenet = incorrect_indices_table_xood_mahala_pen_knn_log_sq.loc['Species', 'incorrect_indices']
     
-    # with open('incorrect_indices_table_knn_pen.pickle', 'wb') as handle:
-    #     pickle.dump(incorrect_indices_table_knn_pen, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        print("len(incorrect_indices_knn_imagenet)  :",len(incorrect_indices_knn_imagenet))
+        print("len(incorrect_indices_mahala_imagenet)  :",len(incorrect_indices_mahala_imagenet))
+        print("len(incorrect_indices_xood_mahala_pen_knn_log_sq_imagenet)  :",len(incorrect_indices_xood_mahala_pen_knn_log_sq_imagenet))
+     
+        knn= set(incorrect_indices_knn_imagenet)    # len(list(knn)) = 
+        comb_sq_log = set(incorrect_indices_xood_mahala_pen_knn_log_sq_imagenet)  # len(list(knn)) = 
+        common_indices = knn.intersection(comb_sq_log)  # len(list(common_indices))=
+        
+        # we are removing common indices which are wrongly classified by both knn and comb_log_sq
+        knn_only = knn- common_indices  # len(list(knn_only)) =79
+        comb_sq_log_only = comb_sq_log- common_indices # len(list(comb_sq_log_only)) = 39
+        
+        print("flag 1.32 len(knn_only)  :",len(knn_only))  
+        print("flag 1.32 len(comb_sq_log_only)  :",len(comb_sq_log_only))
+        
+        missing_indices = knn_only - comb_sq_log_only
+        print("flag 1.33 missing_indices_list  :",list(missing_indices))
+        save_missing_indices_images_in_folder(list(missing_indices),"missing_indices_ood_species__id_imagenet", dataset )
+        
+            # ====================================================================================
+            #     saving y_pred values of incorrect_indices of document for each of the FeatureTester instance   
+            # ====================================================================================
+            
+        incorrect_indices_table_knn_pen_imagenet =incorrect_indices_table_knn_pen.loc['Species']
+        y_pred_list_knn_pen_imagenet = list(incorrect_indices_table_knn_pen_imagenet.loc['y_pred_ood'])
+            
+        incorrect_indices_table_xood_mahala_pen_knn_log_sq_imagenet =incorrect_indices_table_xood_mahala_pen_knn_log_sq.loc['Species']
+        y_pred_list_xood_mahala_pen_knn_log_sq_imagenet = list(incorrect_indices_table_xood_mahala_pen_knn_log_sq_imagenet.loc['y_pred_ood'])
+        
+        incorrect_indices_table_mahala_xtreme_imagenet =incorrect_indices_table_mahala_xtreme.loc['Species']
+        y_pred_list_mahala_xtreme_imagenet = list(incorrect_indices_table_mahala_xtreme_imagenet.loc['y_pred_ood'])
+        
+        index_list= list(missing_indices)
+        
+        y_pred_knn_pen_imagenet = [y_pred_list_knn_pen_imagenet[i] for i in index_list]
+        y_pred_xood_mahala_pen_knn_log_sq_imagenet = [y_pred_list_xood_mahala_pen_knn_log_sq_imagenet[i] for i in index_list]
+        y_pred_mahala_xtreme_imagenet = [y_pred_list_mahala_xtreme_imagenet[i] for i in index_list]
+        
+        data = {
+            'index_list': index_list,
+            'y_pred_knn_pen_imagenet': y_pred_knn_pen_imagenet,
+            'y_pred_xood_mahala_pen_knn_log_sq_imagenet': y_pred_xood_mahala_pen_knn_log_sq_imagenet,
+            'y_pred_mahala_xtreme_imagenet': y_pred_mahala_xtreme_imagenet
+        }
+        df = pd.DataFrame(data)
+        df.to_csv('y_pred_values_of_missing_indices_ood_species__id_imagenet.csv', index=True)
+        
+        
+    # =============================================================================
+    #   get_mcnemar_test for_all_ood_data
+    # =============================================================================
+    with open('incorrect_indices_table_knn_pen.pickle', 'wb') as handle:
+        pickle.dump(incorrect_indices_table_knn_pen, handle, protocol=pickle.HIGHEST_PROTOCOL)
     
-    # with open('incorrect_indices_table_xood_mahala_pen_knn_log_sq.pickle', 'wb') as handle:
-    #     pickle.dump(incorrect_indices_table_xood_mahala_pen_knn_log_sq, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    with open('incorrect_indices_table_xood_mahala_pen_knn_log_sq.pickle', 'wb') as handle:
+        pickle.dump(incorrect_indices_table_xood_mahala_pen_knn_log_sq, handle, protocol=pickle.HIGHEST_PROTOCOL)
     
-    # get_mcnemar_for_all_ood_data(dataset,incorrect_indices_table_knn_pen, incorrect_indices_table_xood_mahala_pen_knn_log_sq)
-    # print("flag 1.3 finished")
-    
-    # # with open('ybinary_knn_cifar10.pickle', 'wb') as handle:
-    # #     pickle.dump(ybinary_knn_cifar10, handle, protocol=pickle.HIGHEST_PROTOCOL)
-    
-    # # with open('ybinary_xood_mahala_pen_knn_log_sq_cifar10.pickle', 'wb') as handle:
-    # #     pickle.dump(ybinary_xood_mahala_pen_knn_log_sq_cifar10, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    get_mcnemar_for_all_ood_data(dataset,incorrect_indices_table_knn_pen, incorrect_indices_table_xood_mahala_pen_knn_log_sq)
+    print("flag 1.3 finished")
 
-    # print("1.32 saving done")
+    print("1.32 saving done")
 
     
     # =============================================================================
@@ -1080,8 +1142,6 @@ def test_ood(dataset, model, alpha):
     #         print("<<<<<<<<==================================================================================>>>>>>>")
 
 
-    
-
     # ft_mahala.create_summary_combine(ft_mahala.conf.softmax, "baseline")
     # ft.create_summary(ft.conf.energy, "energy")
     # ft.create_summary(ft.conf.react_energy, "react_energy")
@@ -1101,12 +1161,12 @@ if __name__ == "__main__":
     
     start_time = time.time()
     
-    # sys.stdout = open("console_output_mnist.txt", "w")
+    # sys.stdout = open("console_output_document_2000images.txt", "w")
     # test_ood("mnist", "lenet", 0.5)
-    # test_ood("cifar10", "resnet", 0.5)
+    test_ood("cifar10", "resnet", 0.5)
 
     # test_ood("cifar100", "resnet", 0.5)
-    test_ood("document", "resnet50_docu", 0.5)
+    # test_ood("document", "resnet50_docu", 0.5)
 
     # test_ood("imagenet", "resnet50", 0.5)
     # for i in [0.7]:
@@ -1126,3 +1186,4 @@ if __name__ == "__main__":
     print("\nExecution Complete") 
     time_taken = convert_seconds((time.time() - start_time))
     print("--- time taken :  %s ---" % time_taken)
+    

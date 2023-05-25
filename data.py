@@ -568,10 +568,10 @@ def out_of_dist(dataset_name, debug=False):
         datasets.update({
             "Cifar10": mnist_ood["cifar10"] ,
             "NonMNIST": mnist_ood["notmnist"],
-            # "FashionMNIST": mnist_ood["fashionmnist"],
-            # "Tin": mnist_ood["tin"],
-            # "Places": mnist_ood["places"],
-            # "Texture": mnist_ood["texture"],
+            "FashionMNIST": mnist_ood["fashionmnist"],
+            "Tin": mnist_ood["tin"],
+            "Places": mnist_ood["places"],
+            "Texture": mnist_ood["texture"],
         })
     elif dataset_name == "cifar10":
         cifar10_ood = out_of_dict_from_openood_for_cifar10()
@@ -1419,16 +1419,15 @@ def out_of_dict_from_openood_for_cifar100_pickle():
     os.chdir(old_path)
     return ood_datasets
 
-def save_missing_indices_images_in_folder(missing_indices, folder_name):
-    print("save_missing_indices_images_in_folder()")
+
+def save_missing_cifar10_indices_images_in_folder_for_mnist_id(missing_indices, folder_name, dataset):
+    print("save_missing_cifar10_indices_images_in_folder_for_mnist_id()")
 
     # Convert the NumPy array to a Python list
-    # ood_datasets = load_document_ood_data()
-    # testloader = ood_datasets["rvl_cdip_o"]
-    
+    print("flag 1.38 cifar10 saving in a folder")
     ood_datasets = out_of_dict_from_openood_for_mnist()
     testloader = ood_datasets["cifar10"]
-        
+
     missing_indices = [int(x) for x in missing_indices]
     # random.seed(1234)
     # missing_indices= random.sample(missing_indices, 5)
@@ -1443,13 +1442,67 @@ def save_missing_indices_images_in_folder(missing_indices, folder_name):
     missing_images = []
     for i, data in enumerate(testloader):
         image_tensor = data["data"]
-        print("image_tensor.shape :", image_tensor.shape)
+        print("flag 1.39 image_tensor.shape :", image_tensor.shape)
+        
+        # # Stop after a certain number of batches (e.g., 10)
+        # if i== 10:
+        #     break
+        
         for index in missing_indices_set:
+            print("flag 1.40 index :", index)
             image = image_tensor[index]
             image = image.numpy()
             # Convert to numpy array and normalize pixel values to [0,1]
             image_array = (image.transpose(1, 2, 0) - image.min()) / (image.max() - image.min())
             plt.imsave(f'{directory}/missing_image_{index}.png', image_array)
+    print("-- indices images saved")
+    
+    
+def save_missing_indices_images_in_folder(missing_indices, folder_name, dataset):
+    print("save_missing_indices_images_in_folder()")
+    
+    print("flag 1.38 species saving in a folder")
+    ood_datasets = out_of_dict_from_openood_for_imagenet()
+    testloader = ood_datasets["species"]
+
+    missing_indices = [int(x) for x in missing_indices]
+    # random.seed(1234)
+    # missing_indices= random.sample(missing_indices, 5)
+    # print(missing_indices)
+    # Create the directory for saving missing images if it doesn't exist
+    directory = os.path.join('/home/saiful/confidence-magesh_MR/confidence-magesh/missing_images', folder_name)
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+    
+    # Convert missing_indices to a set for faster lookup
+    missing_indices_set = set(missing_indices)
+    missing_images = []
+    
+    for i, data in enumerate(testloader):
+        image_tensor = data["data"]
+        print("flag 1.39 image_tensor.shape :", image_tensor.shape)
+        print("flag 1.39 type(image_tensor) :", type(image_tensor))
+        print("flag 1.39 len(image_tensor) :", len(image_tensor))
+        # image_tensor_list.append(image_tensor)
+        
+        if i == 0:
+            image_tensor_final = image_tensor
+        else:
+            image_tensor_final = torch.cat((image_tensor_final, image_tensor), dim=0)
+    
+        # # # Stop after a certain number of batches (e.g., 5)
+        # if i== 5:
+        #     break
+        
+    for index in missing_indices_set:
+        print("flag 1.40 index :", index)
+        image = image_tensor_final[index]
+        image = image.numpy()
+        # Convert to numpy array and normalize pixel values to [0,1]
+        image_array = (image.transpose(1, 2, 0) - image.min()) / (image.max() - image.min())
+        plt.imsave(f'{directory}/missing_image_{index}.png', image_array)
+        
+
     print("-- indices images saved")
             
 def save_missing_document_indices_images_in_folder(missing_indices, folder_name):
