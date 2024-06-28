@@ -799,48 +799,12 @@ def test_ood(dataset, model, alpha):
     print("test_ood.py ==> test_ood()")
     print(
         f"\n\n================ Testing Features On {dataset} {model} ================", flush=True)
-    pred_probs = []
-    pred_clean_probs = []
-    #ft.create_summary(ft.conf.predict_mahala, "x-ood-mahala")
-
-    ## ft_mahala -> this will be in mahala
-    ## FeatureTester__init__(self, dataset: str, model: str, feature_model, folder_name=""
     
     print("\n\n==> a) Calculating LR on Extreme values for Document Datasets..")
     ft_lr_xood = FeatureTester(dataset, model, feature_model = "mahala", name = "knn", extreme=True, pen=False)
     ft_lr_xood.fit()
     ft_lr_xood.create_summary(ft_lr_xood.conf.predict_proba, "X-ood-LR")
 
-    # print("\n\n==> a) Calculating Mahala on Extreme values..")
-    # ft_mahala_xood = FeatureTester(dataset, model, "mahala", "knn", extreme=True, pen=False)
-    # pred_mahala_xood, pred_clean_mahala_xood = ft_mahala_xood.create_summary_combine(
-    #     ft_mahala_xood.conf.predict_mahala, "x-ood-mahala")
-    # incorrect_indices_table_mahala_xtreme=ft_mahala_xood.taylor_table(pred_mahala_xood, pred_clean_mahala_xood,
-    #                         "x-ood-mahala-extreme-" + str(alpha), "mahala")
-
-
-    # print("\n\n==> b) Calculating KNN on Penultimate layer values..")
-    # ft_knn_pen = FeatureTester(dataset, model, "knn", "knn", extreme=False, pen=True)
-    # ft_knn_pen.fit_knn(test=False)
-    # pred_knn_pen, pred_clean_knn_pen = ft_knn_pen.create_summary_combine(
-    #     ft_knn_pen.conf.predict_knn_faiss, "open-ood-knn")
-    # incorrect_indices_table_knn_pen = ft_knn_pen.taylor_table(pred_knn_pen, pred_clean_knn_pen, "knn-penultimate-features-" + str(alpha), "knn")
-
-
-
-    # ft_mahala.create_summary_combine(ft_mahala.conf.softmax, "baseline")
-    # ft.create_summary(ft.conf.energy, "energy")
-    # ft.create_summary(ft.conf.react_energy, "react_energy")
-    # for i in range(10):
-    # ft.fit(new_cal_set=True)
-    #ft.create_summary(ft.conf.predict_proba, f"x-ood-lr")
-    # ft.fit_knn(test=False)
-    #ft.create_summary(ft.conf.predict_knn, f"x-ood-knn")
-    # ft.fit_knn_faiss()
-    # Add KNN Faiss algorithm to this
-    #ft.create_summary(ft.conf.predict_knn_faiss, f"knn-open-ood")
-    # ft.test_distorted()
-    # ft.test_ood()
     
     
 
@@ -848,33 +812,7 @@ def test_ood(dataset, model, alpha):
 if __name__ == "__main__":
     
     start_time = time.time()
-    
-    # sys.stdout = open("console_output.txt", "w")
-    # test_ood("mnist", "lenet", 0.5)
-    # test_ood("cifar10", "resnet", 0.5)
-    # test_ood("cifar10", "cifar10_VitMSN", 0.5)
-
-
-    # test_ood("cifar100", "resnet", 0.5)
     test_ood("document", "resnet50_docu", 0.5)
-
-    # test_ood("imagenet", "resnet50", 0.5)
-    
-    # test_ood("imagenet200", "resnet18_224x224", 0.5)
-
-    # for i in [0.7]:
-    #   test_ood("imagenet", "resnet34", i)
-    #   test_ood("cifar10", "resnet", i)
-    #  test_ood("cifar100", "resnet", i)
-    #test_ood("cifar100", "resnet", 0.7)
-    #test_ood("cifar100", "resnet50")
-    #test_ood("cifar100", "resnet101")
-    # for m in "resnet", "densenet":
-    # for m in "densenet":
-    #   for d in "svhn", "cifar10", "cifar100":
-    #      test_ood(d, m)
-    # for m in "resnet18", "resnet34", "resnet50", "resnet101":
-    #     test_ood("imagenet", m)
     
     print("\nExecution Complete") 
     time_taken = convert_seconds((time.time() - start_time))

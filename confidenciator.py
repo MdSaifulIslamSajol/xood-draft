@@ -472,35 +472,18 @@ class FeatureExtractor(nn.Module):
 
 class Confidenciator:
 
-    def __init__(self, model: nn.Module, transform, train_set, mahala_xood, knn_pen , features=(MinMax(),),reg= 1):
+    def __init__(self, model: nn.Module, transform, train_set, xood_lr, features=(MinMax(),),reg= 1):
         print("\n\n ##  Creating Confidenciator  ##")
         print("confidenciator.py  ==> __init__()")
         self.model = FeatureExtractor(model, transform, features)
         self.feat_cols = []
-        #print("train set shape Before add_prediction_and_features : ", train_set.shape)
-        ##
-        if not mahala_xood:
-            train_set_mahala = self.add_prediction_and_penultimate_features_dl_to_mahala(train_set)
-        else:
-            train_set_mahala = self.add_prediction_and_features_dl(train_set)
-            
-        # if knn_pen:
-        #     train_set_knn = self.add_prediction_and_features_knn(train_set)
-        # else:
-        #     train_set_knn = self.add_prediction_and_extreme_features_dl_to_knn(train_set)
-            
         
-        ##
-        # train_set_mahala = self.add_prediction_and_features_dl(train_set)
-        train_set_knn = self.add_prediction_and_features_knn(train_set)
-        # train_set_final_mahala = self.add_prediction_and_penultimate_features_dl_to_mahala(train_set)
-        # print("train set shape After add_prediction_and_features: ", train_set.shape)
-        # combine_train_set_mahala_knn = pd.concat([train_set_mahala, train_set_knn], ignore_index=True, axis=1)
+        train_set_lr = self.add_prediction_and_features_dl(train_set)
+        print("Training set for ICPR LR: ", train_set_lr.shape)
+
         self.index = None
         self.K = 50
 
-        #train_set = train_set[train_set["is_correct"]]
-        # print("combine_train_set_mahala_knn of shape:  ", combine_train_set_mahala_knn.shape)
         self.lr = None
         self.coeff = None
         self.concatenated_vectors = None
@@ -514,86 +497,28 @@ class Confidenciator:
         self.scaler_knn = StandardScaler()
         print("[self.feat_cols]:\n", [self.feat_cols])
         x = self.pt.fit_transform(
-            self.scaler.fit_transform(train_set_mahala))
-        # x = self.pt.fit_transform(
-        #     self.scaler.fit_transform(train_set_mahala[self.feat_cols]))
-        # x_combine = self.pt_combine.fit_transform(self.scaler_combine.fit_transform(combine_train_set_mahala_knn))
-        # x_final_mahala = self.pt_final_mahala.fit_transform(self.scaler_final_mahala.fit_transform(train_set_final_mahala))
-        
-        # if reg < np.inf:
-        #     cov = np.cov(x, rowvar=False)
-        #     # cov_comb = np.cov(x_combine, rowvar=False)
-        #     # cov_final_mahala = np.cov(x_final_mahala, rowvar=False)
-        #     self.inv_cov = np.linalg.inv(
-        #         cov + reg * np.identity(len(self.feat_cols)))
-        #     # self.combine_inv_cov = np.linalg.inv(
-        #     #     cov_comb + reg * np.identity(combine_train_set_mahala_knn.shape[1]))
-        #     # self.final_mahala_inv_cov = np.linalg.inv(
-        #         # cov_final_mahala + reg * np.identity(train_set_final_mahala.shape[1]))
-        # else:
-        #     self.inv_cov = np.identity(len(self.feat_cols))
-            
-            ##
-        if reg < np.inf:
-            cov = np.cov(x, rowvar=False)
-                    # cov_comb = np.cov(x_combine, rowvar=False)
-                    # cov_final_mahala = np.cov(x_final_mahala, rowvar=False)
-            if not mahala_xood:
-                self.inv_cov = np.linalg.inv(cov + reg * np.identity(train_set_mahala.shape[1]))
-            else:
-                self.inv_cov = np.linalg.inv(cov + reg * np.identity(len(self.feat_cols)))
-                    # self.combine_inv_cov = np.linalg.inv(
-                    #     cov_comb + reg * np.identity(combine_train_set_mahala_knn.shape[1]))
-                    # self.final_mahala_inv_cov = np.linalg.inv(
-                        # cov_final_mahala + reg * np.identity(train_set_final_mahala.shape[1]))
-        else:
-            self.inv_cov = np.identity(len(self.feat_cols))
-            
-            ##
-            
-        # self.mean = np.zeros(len(self.feat_cols))
-        if not mahala_xood:
-            self.mean = np.zeros(train_set_mahala.shape[1])
-        else:
-            self.mean = np.zeros(len(self.feat_cols))
-        # self.comb_mean = np.zeros(combine_train_set_mahala_knn.shape[1])
-        # self.mean_final_mahala = np.zeros(train_set_final_mahala.shape[1])
+            self.scaler.fit_transform(train_set_lr))
+        self.inv_cov = np.identity(len(self.feat_cols))
+        self.mean = np.zeros(len(self.feat_cols))
         self.reg = reg
-        
-        # calculating mahala for trainset
-        self.mahala_train = -np.apply_along_axis(lambda row: mahalanobis(row, self.mean, self.inv_cov), 1, x)
-        
-        mahala_sq = -(self.mahala_train ** 2)
-        self.mahala_mean = np.abs(mahala_sq.mean())
-        self.mahala_std = np.abs(mahala_sq.std())
-        self.mahala_max_mean = self.mahala_train.mean()
-        self.mahala_max_std = self.mahala_train.std()
-        print("**********************")
-        print("Mahala Mean: ", self.mahala_mean)
-        print("Mahala Std: ", self.mahala_std)
-        print("**********************")
-        print("**********************")
-        print("Mahala Max Mean: ", self.mahala_max_mean)
-        print("Mahala Max Std: ", self.mahala_max_std)
-        print("**********************")
 
-    def add_prediction_and_features(self, df: pd.DataFrame):
-        print("\nconfidenciator.py  ==> Confidenciator.add_prediction_and_features()")
+    # def add_prediction_and_features(self, df: pd.DataFrame):
+    #     print("\nconfidenciator.py  ==> Confidenciator.add_prediction_and_features()")
         
-        pred, features = self.model.predict(
-            get_images_and_labels(df, labels=False, chw=True))
+    #     pred, features = self.model.predict(
+    #         get_images_and_labels(df, labels=False, chw=True))
         
-        if len(self.feat_cols) == 0:
-            self.feat_cols = ["Max_out", "Min_out"] + list(features.keys())
+    #     if len(self.feat_cols) == 0:
+    #         self.feat_cols = ["Max_out", "Min_out"] + list(features.keys())
             
-        df["pred"] = np.argmax(pred, axis=-1)
-        df["is_correct"] = df["pred"] == df["label"].to_numpy()
-        df["Max_out"] = np.max(pred, axis=-1)
-        df["Min_out"] = -np.min(pred, axis=-1)
-        df = pd.concat([df, pd.DataFrame(features, index=df.index)], axis=1)
-        # self.extreme_value_vector = df[self.feat_cols]
-        print("returning add_prediction_and_features() with shape:", df.shape)
-        return df
+    #     df["pred"] = np.argmax(pred, axis=-1)
+    #     df["is_correct"] = df["pred"] == df["label"].to_numpy()
+    #     df["Max_out"] = np.max(pred, axis=-1)
+    #     df["Min_out"] = -np.min(pred, axis=-1)
+    #     df = pd.concat([df, pd.DataFrame(features, index=df.index)], axis=1)
+    #     # self.extreme_value_vector = df[self.feat_cols]
+    #     print("returning add_prediction_and_features() with shape:", df.shape)
+    #     return df
     
     def add_prediction_and_features_dl(self, dataloader):
         print("\nconfidenciator.py  ==> Confidenciator.add_prediction_and_features_dl()")
@@ -612,13 +537,6 @@ class Confidenciator:
         df["Max_out"] = np.max(pred, axis=-1)
         df["Min_out"] = -np.min(pred, axis=-1)
         df = pd.concat([df, pd.DataFrame(features, index=df.index)], axis=1)
-            
-        # df = pd.DataFrame(features)
-        # df["pred"] = np.argmax(pred, axis=-1)
-        # df["is_correct"] = df["pred"] == labels
-        # df["Max_out"] = np.max(pred, axis=-1)
-        # df["Min_out"] = -np.min(pred, axis=-1)
-        # self.extreme_value_vector = df[self.feat_cols]
         print("returning add_prediction_and_features_dl() with shape:", df.shape)
         return df
     
@@ -665,7 +583,7 @@ class Confidenciator:
         print("confidenciator.py  ==> Confidenciator.fit()")
         nbr_folds = len(cal)
         cal = pd.concat(list(cal.values()), ignore_index=True)
-        cal = self.add_prediction_and_features(cal)
+        cal = self.add_prediction_and_features_dl(cal)
         features = split_features(self.pt.transform(
             self.scaler.transform(cal[self.feat_cols])))
         self.lr = Pipeline([
