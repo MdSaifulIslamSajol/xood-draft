@@ -1,18 +1,41 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Thu Jun 27 15:52:50 2024
+
+@author: saiful
+"""
+
 import os
-os.environ["CUDA_VISIBLE_DEVICES"]="4"
+os.environ["CUDA_VISIBLE_DEVICES"]="3,4,5"
+
+
+    
 import torch.multiprocessing
 torch.multiprocessing.set_sharing_strategy('file_system')
+
+if torch.cuda.is_available():
+    print("CUDA (GPU support) is available in PyTorch!")
+    print(f"Number of GPU(s) available: {torch.cuda.device_count()}")
+    print(f"Name of the GPU: {torch.cuda.get_device_name(0)}")
+else:
+    print("CUDA (GPU support) is not available in PyTorch. Using CPU instead.")
+    
 from pathlib import Path
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 from sklearn.metrics import roc_auc_score, det_curve, average_precision_score, roc_curve
-from tensorflow.keras.datasets import cifar10, mnist
+from sklearn.metrics import confusion_matrix, accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
+from sklearn.metrics import roc_auc_score, accuracy_score
+
+# from tensorflow.keras.datasets import cifar10, mnist
 from sklearn import preprocessing
 
 from confidenciator import Confidenciator, split_features
-from data import distorted, calibration, out_of_dist, load_data, load_svhn_data, imagenet_validation
+from data import distorted, calibration, out_of_dist, load_data, load_svhn_data, imagenet_validation, save_missing_indices_images_in_folder,save_missing_document_indices_images_in_folder
 import data
+from data import save_missing_cifar10_indices_images_in_folder_for_mnist_id
 from utils import binary_class_hist, df_to_pdf
 from models.load import load_model
 import sys
@@ -21,8 +44,9 @@ import seaborn as sns
 from matplotlib import pyplot as plt2
 import pickle
 import time
+import random
 from scipy import stats
-
+from statsmodels.stats.contingency_tables import mcnemar
 
 def convert_seconds(seconds):
     hours = seconds // 3600
@@ -31,16 +55,112 @@ def convert_seconds(seconds):
     seconds %= 60
     return f"{hours} hours, {minutes} minutes, {seconds} seconds"
 
-def taylor_scores(in_dist, out_dist):
-    print("test_ood.py ==> taylor_scores()")
-    print("np.shape(in_dist): ",np.shape(in_dist) )
-    print("np.shape(out_dist): ",np.shape(out_dist) )
+def compute_confusion_metrix(in_dist, out_dist,dataset_name,featuretester_method):
+    #=#
+    print("compute_confusion_metrix()")
+    print("flag 1.27 featuretester_method  :",featuretester_method)
+    print("flag 1.27 dataset_name  :",dataset_name)
+    print("np.shape(in_dist): ",np.shape(in_dist))
+    print("np.shape(out_dist): ",np.shape(out_dist))
+    # print("(in_dist): ",in_dist )
+    # print("(out_dist): ",out_dist )
     y_true = np.concatenate([np.ones(len(in_dist)), np.zeros(len(out_dist))])
     y_pred = np.concatenate([in_dist, out_dist])
+    print("np.shape(y_true): ",np.shape(y_true))
+    print("np.shape(y_pred): ",np.shape(y_pred))
+    # print("(y_true): ",y_true)
+    # print("(y_pred): ",y_pred)
+    
+    optimal_threshold = calculate_optimal_threshold(y_true,y_pred,dataset_name,featuretester_method)
+    
+    # Convert the predicted scores to binary predictions using a threshold of 0.5
+    # Convert probabilities to binary predictions
+    y_pred_binary = np.where(y_pred >= optimal_threshold, 1, 0)
+    # y_pred_binary = np.where(y_pred >= 0.5, 1, 0)
+    
+    # compute confusion metrix only for ood daata
+    
+    # Compute confusion matrix
+    y_true_ood = np.zeros(len(out_dist))
+    y_pred_ood = out_dist
+    y_pred_ood_binary = np.where(y_pred_ood >= optimal_threshold, 1, 0)
+    # cm = confusion_matrix(y_true, y_pred_binary)
+    print("flag 1.28 np.shape(y_true_ood): ",np.shape(y_true_ood))
+    print("flag 1.28 np.shape(y_pred_ood): ",np.shape(y_pred_ood))
+    cm = confusion_matrix(y_true_ood, y_pred_ood_binary)
+    
+    print("flag 1.29 cm: ",cm)
+    
+    tn = cm[0][0]  # True Negatives
+    fp = cm[0][1]  # False Positives
+    fn = cm[1][0]  # False Negatives
+    tp = cm[1][1]  # True Positives
+    # tn, fp, fn, tp = cm.ravel()
+    
+    # Compute other performance metrics
+    accuracy = accuracy_score(y_true, y_pred_binary)
+    precision = precision_score(y_true, y_pred_binary)
+    recall = recall_score(y_true, y_pred_binary)
+    f1 = f1_score(y_true, y_pred_binary)
+    tpr = recall
+    fpr = fp / (fp + tn)
+    roc_auc = roc_auc_score(y_true, y_pred)
+    
+    # Print the results
+    print("\nflag 1.27 Confusion Matrix:")
+    print("cm :",cm)
+    print("True Negatives:", tn)
+    print("False Positives:", fp)
+    print("False Negatives:", fn)
+    print("True Positives:", tp)
+    print("Accuracy:", accuracy)
+    print("Precision:", precision)
+    print("Recall:", recall)
+    print("F1 Score:", f1)
+    print("TPR (Sensitivity):", tpr)
+    print("FPR (1 - Specificity):", fpr)
+    print("AUC-ROC:", roc_auc)
+    print("Optimal Threshold:", optimal_threshold)
+    
+    cm_scores = pd.Series({
+        "Testimages": len(out_dist),
+        "True Negatives": tn,
+        "False Positives": fp,
+        "False Negatives": fn,
+        "True Positive": tp,
+        "Accuracy": accuracy,
+        "Precision": precision,
+        "Recall": recall,
+        "F1 Score": f1,
+        "TPR (Sensitivity)": tpr,
+        "FPR (1 - Specificity)": fpr,
+        "AUC-ROC": roc_auc,
+        "Optimal Threshold": optimal_threshold,
+        
+    })
+    
+    return cm_scores
+
+def taylor_scores(in_dist, out_dist,dataset_name,featuretester_method):
+    print("\ntest_ood.py ==> taylor_scores()")
+    print("featuretester_method 1.2 :",featuretester_method)
+    print("dataset_name 1.2 :",dataset_name)
+    print("np.shape(in_dist): ",np.shape(in_dist))
+    print("np.shape(out_dist): ",np.shape(out_dist))
+    # print("(in_dist): ",in_dist )
+    # print("(out_dist): ",out_dist )
+    y_true = np.concatenate([np.ones(len(in_dist)), np.zeros(len(out_dist))])
+    y_pred = np.concatenate([in_dist, out_dist])
+    print("np.shape(y_true): ",np.shape(y_true))
+    print("np.shape(y_pred): ",np.shape(y_pred))
+    # print("(y_true): ",y_true)
+    # print("(y_pred): ",y_pred)
+
     fpr, fnr, thr = det_curve(y_true, y_pred, pos_label=1)
     det_err = np.min((fnr + fpr) / 2)
     fpr, tpr, thr = roc_curve(y_true, y_pred)
     fpr95_sk = fpr[np.argmax(tpr >= .95)]
+    
     scores = pd.Series({
         "FPR (95% TPR)": fpr95_sk,
         "Detection Error": det_err,
@@ -49,6 +169,141 @@ def taylor_scores(in_dist, out_dist):
         "AUPR Out": average_precision_score(y_true, 1 - y_pred, pos_label=0),
     })
     return scores
+
+def mcnemar_test(a, b):
+    mcnemar_dict = {}
+    if len(a) != len(b): 
+        return None
+    true_true_a = 0
+    true_false_b = 0
+    false_true_c = 0
+    false_false_d = 0
+                
+    for i in range(0, len(a)):
+        # print("flag 1.8 i",i)
+        # print("flag 1.8 a[i]",a[i])
+        # print("flag 1.8 b[i]",b[i])
+
+        if a[i] and b[i]:
+            true_true_a+=1
+        elif a[i] and not b[i]:
+            true_false_b+=1
+        elif not a[i] and b[i]:
+            false_true_c+=1
+        elif not a[i] and not b[i]: 
+            false_false_d+=1
+        else:
+            pass
+    print(true_true_a, true_false_b, false_true_c, false_false_d)
+    print("mcnemar_test :","\ntrue_true_a:", true_true_a, "\ntrue_false_b:", true_false_b, "\nfalse_true_c:", false_true_c, "\nfalse_false_d:", false_false_d)
+    # mcnemar = (true_false_b - false_true_c)**2 / (true_false_b + false_true_c)
+    
+    table = [[true_true_a, true_false_b], [false_true_c, false_false_d]]
+    result = mcnemar(table, exact=False, correction = True)
+    mcnemar_dict = {"pvalue":result.pvalue , 
+                    "statistic" :result.statistic }
+    # return float(result.pvalue), result.statistic
+    return mcnemar_dict
+
+  
+def get_mcnemar_for_all_ood_data(id_dataset,df1,df2):
+    print("get_mcnemar_for_all_ood_data()")
+    print("flag 1.11 mcnemar test for","id dataset-",id_dataset)
+    mcnemar_test_dict = {}
+    print("flag 1.11 df1.index : ", df1.index)
+    print("flag 1.11 df2.index : ", df2.index)
+
+    # loop over each index and calculate the sum of loss column for that index in both dataframes
+    for index in df1.index:
+        a= df1.loc[index,'y_binary']
+        b= df2.loc[index,'y_binary']
+        # print("flag 1.21 a :",a)
+        # print("flag 1.21 b :",b)
+        mcnemar_test_dict[index] = mcnemar_test(a,b)
+    
+    # p_value, stat_value =mcnemar_test(ybinary_knn_cifar10,ybinary_xood_mahala_pen_knn_log_sq_cifar10)
+    df3 = pd.DataFrame(mcnemar_test_dict).transpose()
+    df3.to_csv(f"{id_dataset}_mcnemar_test_dict.txt", sep="\t")
+    df3.to_csv(f"{id_dataset}_mcnemar_test_dict_df3.csv")
+    print('flag 1.11 mcnemar_test_dict:',mcnemar_test_dict)
+
+    
+def calculate_optimal_threshold(y_test, y_prob,dataset_name,featuretester_method):
+    print("calculate_optimal_threshold()")
+    fpr, tpr, thresholds = roc_curve(y_test, y_prob)
+    roc_auc = roc_auc_score(y_test, y_prob)
+    # print("flag 1.6 roc_auc :",roc_auc)
+    # print("flag 1.6 fpr :",fpr)
+    # print("flag 1.6 tpr :",tpr)
+    # print("flag 1.6 thresholds :",thresholds)
+    
+    # Plot the ROC curve
+    plt.clf()
+    plt.plot(fpr, tpr, label=f'ROC curve (AUC = {roc_auc:.2f})')
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    plt.title('ROC curve')
+    plt.legend()
+    # plt.savefig(f'roc_curve_{featuretester_method}_{dataset_name}.png')
+    plt.show()
+    plt.clf()
+    
+    # Find the optimal threshold
+    optimal_threshold = thresholds[np.argmax(tpr - fpr)]   
+    print('flag 1.6 The optimal threshold is:', optimal_threshold)
+    
+    return optimal_threshold
+    
+    
+def get_incorrect_indices(in_dist, out_dist,dataset_name,featuretester_method):
+    print("get_incorrect_indices()")
+    print("\ntest_ood.py ==> taylor_scores()")
+    print("featuretester_method 1.2 :",featuretester_method)
+    print("dataset_name 1.2 :",dataset_name)
+    print("np.shape(in_dist): ",np.shape(in_dist))
+    print("np.shape(out_dist): ",np.shape(out_dist))
+    # print("(in_dist): ",in_dist )
+    # print("(out_dist): ",out_dist )
+    y_true = np.concatenate([np.ones(len(in_dist)), np.zeros(len(out_dist))])
+    y_pred = np.concatenate([in_dist, out_dist])
+    print("np.shape(y_true): ",np.shape(y_true))
+    print("np.shape(y_pred): ",np.shape(y_pred))
+    # print("(y_true): ",y_true)
+    # print("(y_pred): ",y_pred)
+    ## ##
+    # Calculate the ROC AUC score
+    roc_auc = roc_auc_score(y_true, y_pred)
+    y_true_ood = np.zeros(len(out_dist))
+    y_pred_ood = out_dist
+    
+    optimal_threshold = calculate_optimal_threshold(y_true,y_pred,dataset_name,featuretester_method)
+    
+    # Convert the predicted scores to binary predictions using a threshold of 0.5
+    # assuming for out_dist the probability shoule be less than optimal_threshold
+    y_binary = y_pred_ood < optimal_threshold
+    
+    num_true = np.count_nonzero(y_binary)
+    num_false = y_binary.size - num_true
+    print(f"Number of True values: {num_true}")
+    print(f"Number of False values: {num_false}")
+    
+    # Get the indices where the values of y_binary are True and False, respectively
+    # Find the indices of the correct and incorrect predictions
+    correct_indices = np.where(y_binary)[0]
+    incorrect_indices = np.where(~y_binary)[0]
+    
+    # Print the number of correct and incorrect predictions and their indices
+    print(f"Number of correct predictions: {len(correct_indices)}")
+    print(f"Number of incorrect predictions: {len(incorrect_indices)}")
+    # print("Indices of correct predictions:", correct_indices)
+    # print("Indices of incorrect predictions:", incorrect_indices)
+    
+    incorrect_indices = pd.Series({
+        "incorrect_indices": incorrect_indices,
+        "y_binary":y_binary,
+        "y_pred_ood":y_pred_ood,
+    })
+    return incorrect_indices #, y_binary
 
 
 class FeatureTester: 
@@ -62,36 +317,50 @@ class FeatureTester:
         self.model = model
         # data.img_shape = (32, 32, 3)
         data.img_shape = (224, 224, 3)
-        self.data = data.load_dataset(dataset)  # type(self.data) = dict type
         
+        # =============================================================================
+        #  # Load ID dataset       
+        # =============================================================================
+        self.data = data.load_dataset(dataset)  # type(self.data) = dict type
         print(self.data.keys())
         if "Train" in self.data.keys():
             print(type(self.data["Train"]))
-
         # self.data["Train"] = self.data["Train"].iloc[:100, :]
         # self.data["Val"] = self.data["Val"].iloc[:100, :]
         # self.data["Test"] = self.data["Test"].iloc[:100, :]
-
         self.testset_data = self.data["Test"]
+        
+        # =============================================================================
+        #  # Load Model       
+        # =============================================================================
         m, transform = load_model(dataset, model)
+        # checking device of model
+        device_model = next(m.parameters()).device
+        print("flag 1.234 The model is on:", device_model)
+
         # print("load_model : ", m)
         self.path = Path(f"results/{dataset}_{model}")
         self.path = (self.path / name) if name else self.path
         self.path.mkdir(exist_ok=True, parents=True)
         
+        
+        # =============================================================================
+        #  # Create Confidenciator object
+        # =============================================================================
         # print("Creating Confidenciator", flush=True)
         # print(type(self.data["Train"]))
-        self.conf = Confidenciator(m, transform, self.data["Train"],mahala_xood,knn_pen)
+        self.conf = Confidenciator(m, transform, self.data["Train"], mahala_xood, knn_pen)
         # self.conf.plot_model(self.path) TODO implement this.
 
+        
+        # =============================================================================
+        # # add_prediction_and_features to ID train, val and test data
+        # =============================================================================
         print("\n\n   ##  Adding Feature Columns   ##  ")
         # print("feature_model :", feature_model)
-        
-        # ==============================================================
-        # # add_prediction_and_features to ID train, val and test data
-        # ==============================================================
         for name, df in self.data.items():  
             print("flag 3.6 ", type(self.data[name]))
+            
             if feature_model == "mahala":
                 print("It is goign in mahala")
                 print("running set  :",name)
@@ -131,10 +400,11 @@ class FeatureTester:
         print("flag 3 self.data.keys() :", self.data.keys())
         
         # self.compute_accuracy(self.data)
-                
-        # ================================
+            
+        
+        # =============================================================================
         #  Creating Out-Of-Distribution Sets     
-        # ================================
+        # =============================================================================
         print("\n\n  ##  Creating Out-Of-Distribution Sets  ##  ", flush=True)
         if feature_model == "mahala":
             print("OOD Data Collection For Mahala:")
@@ -165,8 +435,14 @@ class FeatureTester:
             #self.ood = {name: self.conf.add_prediction_and_extreme_features_dl_to_knn(
              #   df) for name, df in out_of_dist(self.dataset).items()}
         print("Length of ood: ", self.ood.keys())
-        # self.cal = None  # Training set for the logistic regression.
-
+        self.cal = None  # Training set for the logistic regression.
+        
+        
+        
+        
+    # =============================================================================
+    #  Other necessary functions
+    # =============================================================================
     def compute_accuracy(self, datasets):
         print("test_ood.py ==> FeatureTester.compute_accuracy()")
         try:
@@ -204,23 +480,49 @@ class FeatureTester:
         pred["All"] = np.concatenate(list(pred.values()))
         print("Until Taylor table everything is good")
         
+        # ==========================
+        # compute_taylor_scores
+        # ==========================
+        featuretester_method = name
         table = pd.DataFrame.from_dict(
-            {name: taylor_scores(map_pred(pred_clean), map_pred(p)) for name, p in pred.items()}, orient="index")
+            {name: taylor_scores(map_pred(pred_clean), map_pred(p),name,featuretester_method) for name, p in pred.items()}, orient="index")
         
         table.to_csv(self.path / f"summary_{name}.csv")
         df_to_pdf(table, decimals=4, path=self.path /
                   f"summary_{name}.pdf", vmin=0, percent=True)
         # self.hist_plot(pred, pred_clean, method_name)
+        print("taylor_table name 1.3", name)
         if corr:
             pred_corr = pred_clean[self.data["Test"]["is_correct"]]
             table = pd.DataFrame.from_dict(
-                {name: taylor_scores(map_pred(pred_corr), map_pred(p)) for name, p in pred.items()}, orient="index")
+                {name: taylor_scores(map_pred(pred_corr), map_pred(p),name,featuretester_method) for name, p in pred.items()}, orient="index")
             table.to_csv(self.path / f"summary_correct_{name}.csv")
             df_to_pdf(table, decimals=4, path=self.path /
                       f"summary_correct_{name}.pdf", vmin=0, percent=True)
-            
-
-    def create_summary(self, f, name="", corr=False):
+        
+        # ========================================
+        # get_indices of wrongly classified images
+        # ========================================
+        incorrect_indices_table = pd.DataFrame.from_dict(
+            {name: get_incorrect_indices(map_pred(pred_clean), map_pred(p),name,featuretester_method) for name, p in pred.items()}, orient="index")   
+        
+        print("flag 1.81 incorrect_indices_table :",incorrect_indices_table)
+        
+        # ==========================
+        # compute_confusion_metrix scores
+        # ==========================
+        cm_table = pd.DataFrame.from_dict(
+            {name: compute_confusion_metrix(map_pred(pred_clean), map_pred(p),name,featuretester_method) for name, p in pred.items()}, orient="index")
+        
+        cm_table.to_csv(self.path / f"confusion_metrix_summary_{name}.csv")
+        # df_to_pdf(cm_table, decimals=4, path=self.path /
+        #           f"confusion_metrix_summary_{name}.pdf", vmin=0, percent=True)
+        # self.hist_plot(pred, pred_clean, method_name)
+        print("confusion_metrix_table name 1.28", name)
+        
+        return incorrect_indices_table
+        
+    def create_summary2(self, f, name="", corr=False):
         print("test_ood.py ==> FeatureTester.create_summary()")
         print("Creating Taylor Table", flush=True)
         print(self.ood.keys())
@@ -237,17 +539,40 @@ class FeatureTester:
         #pred["All"] = np.concatenate(list(pred.values()))
         print("Until Taylor table everything is good")
         table = pd.DataFrame.from_dict(
-            {name: taylor_scores(map_pred(pred_clean), map_pred(p)) for name, p in pred.items()}, orient="index")
+            {name: taylor_scores(map_pred(pred_clean), map_pred(p),name,featuretester_method) for name, p in pred.items()}, orient="index")
         table.to_csv(self.path / f"summary_{name}.csv")
         df_to_pdf(table, decimals=4, path=self.path /
                   f"summary_{name}.pdf", vmin=0, percent=True)
         if corr:
             pred_corr = pred_clean[self.data["Test"]["is_correct"]]
             table = pd.DataFrame.from_dict(
-                {name: taylor_scores(map_pred(pred_corr), map_pred(p)) for name, p in pred.items()}, orient="index")
+                {name: taylor_scores(map_pred(pred_corr), map_pred(p),name,featuretester_method) for name, p in pred.items()}, orient="index")
             table.to_csv(self.path / f"summary_correct_{name}.csv")
             df_to_pdf(table, decimals=4, path=self.path /
                       f"summary_correct_{name}.pdf", vmin=0, percent=True)
+            
+    def create_summary(self, f, name="", corr=False):
+        print("Creating Taylor Table", flush=True)
+        pred = {name: f(df) for name, df in self.ood.items()}
+        pred_clean = f(self.data["Test"])
+        all = np.concatenate(list(pred.values()) + [pred_clean])
+        p_min, p_max = np.min(all), np.max(all)
+
+        def map_pred(x):  # This function is used since some scores only support values between 0 and 1.
+            return (x - p_min) / (p_max - p_min)
+
+        pred["All"] = np.concatenate(list(pred.values()))
+        table = pd.DataFrame.from_dict(
+            {name: taylor_scores(map_pred(pred_clean), map_pred(p)) for name, p in pred.items()}, orient="index")
+        table.to_csv(self.path / f"summary_{name}.csv")
+        df_to_pdf(table, decimals=4, path=self.path / f"summary_{name}.pdf", vmin=0, percent=True)
+        if corr:
+            pred_corr = pred_clean[self.data["Test"]["is_correct"]]
+            table = pd.DataFrame.from_dict(
+                {name: taylor_scores(map_pred(pred_corr), map_pred(p)) for name, p in pred.items()}, orient="index")
+            table.to_csv(self.path / f"summary_correct_{name}.csv")
+            df_to_pdf(table, decimals=4, path=self.path / f"summary_correct_{name}.pdf", vmin=0, percent=True)
+
 
     def test_separation(self, test_set: pd.DataFrame, datasets: dict, name: str, split=False):
         print("test_ood.py ==> FeatureTester.test_separation()")
@@ -348,6 +673,8 @@ class FeatureTester:
               plt2.clf()
               sns.histplot(data=result[key])
               plt2.savefig(self.path / f"save_histogram_{method_name}_{str(key)}.png")
+              plt2.clf()
+              
 
         return result
 
@@ -480,19 +807,15 @@ def test_ood(dataset, model, alpha):
     ## FeatureTester__init__(self, dataset: str, model: str, feature_model, folder_name=""
     
     print("\n\n==> a) Calculating LR on Extreme values for Document Datasets..")
-    ft_lr_xood = FeatureTester(dataset, model, "mahala", "knn", extreme=True, pen=False)
+    ft_lr_xood = FeatureTester(dataset, model, feature_model = "mahala", name = "knn", extreme=True, pen=False)
     ft_lr_xood.fit()
     ft_lr_xood.create_summary(ft_lr_xood.conf.predict_proba, "X-ood-LR")
-    #pred_mahala_xood, pred_clean_mahala_xood = ft_lr_xood.create_summary_combine(
-    #    ft_mahala_xood.conf.predict_mahala, "x-ood-mahala")
-    #ft_mahala_xood.taylor_table(pred_mahala_xood, pred_clean_mahala_xood,
-     #                       "x-ood-mahala-extreme-" + str(alpha), "mahala")
-    
+
     # print("\n\n==> a) Calculating Mahala on Extreme values..")
     # ft_mahala_xood = FeatureTester(dataset, model, "mahala", "knn", extreme=True, pen=False)
     # pred_mahala_xood, pred_clean_mahala_xood = ft_mahala_xood.create_summary_combine(
     #     ft_mahala_xood.conf.predict_mahala, "x-ood-mahala")
-    # ft_mahala_xood.taylor_table(pred_mahala_xood, pred_clean_mahala_xood,
+    # incorrect_indices_table_mahala_xtreme=ft_mahala_xood.taylor_table(pred_mahala_xood, pred_clean_mahala_xood,
     #                         "x-ood-mahala-extreme-" + str(alpha), "mahala")
 
 
@@ -501,193 +824,9 @@ def test_ood(dataset, model, alpha):
     # ft_knn_pen.fit_knn(test=False)
     # pred_knn_pen, pred_clean_knn_pen = ft_knn_pen.create_summary_combine(
     #     ft_knn_pen.conf.predict_knn_faiss, "open-ood-knn")
-    # ft_knn_pen.taylor_table(pred_knn_pen, pred_clean_knn_pen, "knn-penultimate-features-" + str(alpha), "knn")
-
-    # print("\n\n==> c) Calculating Mahala on Penultimate layer values..")
-    # ft_mahala_pen = FeatureTester(dataset, model, "mahala", "knn", extreme=False, pen=True)
-    # pred_mahala_pen, pred_clean_mahala_pen = ft_mahala_pen.create_summary_combine(
-    #     ft_mahala_pen.conf.predict_mahala, "x-ood-mahala")
-    # ft_mahala_pen.taylor_table(pred_mahala_pen, pred_clean_mahala_pen,
-    #                         "mahala-penultimate-" + str(alpha), "mahala")
-
-    # print("\n\n==> d) Calculating KNN on Extreme values..")
-    # ft_knn_xood = FeatureTester(dataset, model, "knn", "knn", extreme=True, pen=False)
-    # ft_knn_xood.fit_knn(test=False)
-    # pred_knn_xood, pred_clean_knn_xood = ft_knn_xood.create_summary_combine(
-    #     ft_knn_xood.conf.predict_knn_faiss, "open-ood-knn")
-    # ft_knn_xood.taylor_table(pred_knn_xood, pred_clean_knn_xood, "knn-extreme-features-" + str(alpha), "knn")
-
-    # if (np.isnan(pred_knn)== True):
-    # if (pd.isna(pred_knn)== True):
-        
-    #     ft_knn.taylor_table(pred_knn, pred_clean_knn, "knn-penultimate-features-" + str(alpha), "knn")
-    # else:
-    #     print("flag It is failing ")
-
-    # hist_plot_mahala_knn(pred_mahala,pred_knn,"mahala_knn")
-    
-    # ==========================================
-    #     
-    # ==========================================
-    
-    # # weighted_arthmetic_mean
-    # pred_arth = weighted_arthmetic_mean(pred_mahala, pred_knn, ft_mahala.conf.mahala_mean, ft_knn.conf.knn_mean, alpha)
-    # print("pred_arth Keys:", pred_arth.keys())
-    # pred_clean_arth = weighted_arthmetic_mean(pred_clean_mahala, pred_clean_knn, ft_mahala.conf.mahala_mean, ft_knn.conf.knn_mean, alpha)
-    # ft_knn.taylor_table(pred_arth, pred_clean_arth, "x-ood-mahala-knn-arth-" + str(alpha),"arthmetic_mean")
-
-    # # weighted_geometric_mean
-    # pred_geo = weighted_geometric_mean(pred_mahala, pred_knn, alpha)
-    # pred_clean_geo = weighted_geometric_mean(
-    #     pred_clean_mahala, pred_clean_knn, alpha)
-    # ft_knn.taylor_table(pred_geo, pred_clean_geo, "x-ood-mahala-knn-geo-" + str(alpha),"geometric_mean")
-   
- 
-    # print(f" pred_mahala 2.51 : {pred_mahala}")
-    # print(f" pred_knn 2.51: {pred_knn}")
-    
-    # print(f" pred_clean_mahala 2.52: {pred_clean_mahala}")
-    # print(f" pred_clean_knn 2.52: {pred_clean_knn}")
-    
-    # with open('pred_mahala_xood_'+str(dataset)+'_.pickle', 'wb') as handle:
-    #     pickle.dump(pred_mahala_xood, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        
-    # with open('pred_knn_pen_'+str(dataset)+'_.pickle', 'wb') as handle:
-    #     pickle.dump(pred_knn_pen, handle, protocol=pickle.HIGHEST_PROTOCOL)
-            
-    # with open('pred_clean_mahala_xood_'+str(dataset)+'_.pickle', 'wb') as handle:
-    #     pickle.dump(pred_clean_mahala_xood, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        
-    # with open('pred_clean_knn_pen_'+str(dataset)+'_.pickle', 'wb') as handle:
-    #     pickle.dump(pred_clean_knn_pen, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
-    # # print(f" pred_mahala 2.51 : {pred_mahala}")
-    # # print(f" pred_knn 2.51: {pred_knn}")
-    
-    # # print(f" pred_clean_mahala 2.52: {pred_clean_mahala}")
-    # # print(f" pred_clean_knn 2.52: {pred_clean_knn}")
-    
-    # with open('pred_mahala_pen_'+str(dataset)+'_.pickle', 'wb') as handle:
-    #     pickle.dump(pred_mahala_pen, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        
-    # with open('pred_knn_xood_'+str(dataset)+'_.pickle', 'wb') as handle:
-    #     pickle.dump(pred_knn_xood, handle, protocol=pickle.HIGHEST_PROTOCOL)
-            
-    # with open('pred_clean_mahala_pen_'+str(dataset)+'_.pickle', 'wb') as handle:
-    #     pickle.dump(pred_clean_mahala_pen, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        
-    # with open('pred_clean_knn_xood_'+str(dataset)+'_.pickle', 'wb') as handle:
-    #     pickle.dump(pred_clean_knn_xood, handle, protocol=pickle.HIGHEST_PROTOCOL)
-                
+    # incorrect_indices_table_knn_pen = ft_knn_pen.taylor_table(pred_knn_pen, pred_clean_knn_pen, "knn-penultimate-features-" + str(alpha), "knn")
 
 
-    # # Mahala xood + KNN pen log probabilty
-    # pred_log_m_xood_knn_pen = log_probability(pred_mahala_xood, pred_knn_pen, ft_knn_pen.conf.knn_n)
-    # pred_clean_log_m_xood_knn_pen = log_probability(pred_clean_mahala_xood, pred_clean_knn_pen,ft_knn_pen.conf.knn_n)
-    # ft_knn_pen.taylor_table(pred_log_m_xood_knn_pen, pred_clean_log_m_xood_knn_pen, "xood-mahala-pen-knn-log", "log_probability" )
-
-    # # Mahala Pen + KNN pen log probabilty
-    # pred_log_m_pen_knn_pen = log_probability(pred_mahala_pen, pred_knn_pen, ft_knn_pen.conf.knn_n)
-    # pred_clean_log_m_pen_knn_pen = log_probability(pred_clean_mahala_pen, pred_clean_knn_pen,ft_knn_pen.conf.knn_n)
-    # ft_knn_pen.taylor_table(pred_log_m_pen_knn_pen, pred_clean_log_m_pen_knn_pen, "pen-mahala-pen-knn-log", "log_probability" )
-
-    # # Mahala xood + KNN Xood log probabilty
-    # pred_log_m_xood_knn_xood = log_probability(pred_mahala_xood, pred_knn_xood, ft_knn_xood.conf.knn_n)
-    # pred_clean_log_m_xood_knn_xood = log_probability(pred_clean_mahala_xood, pred_clean_knn_xood,ft_knn_xood.conf.knn_n)
-    # ft_knn_xood.taylor_table(pred_log_m_xood_knn_xood, pred_clean_log_m_xood_knn_xood, "xood-mahala-xood-knn-log", "log_probability" )
-
-    # # Mahala pen + KNN xood log probabilty
-    # pred_log_m_pen_knn_xood = log_probability(pred_mahala_pen, pred_knn_xood, ft_knn_xood.conf.knn_n)
-    # pred_clean_log_m_pen_knn_xood = log_probability(pred_clean_mahala_pen, pred_clean_knn_xood,ft_knn_xood.conf.knn_n)
-    # ft_knn_xood.taylor_table(pred_log_m_pen_knn_xood, pred_clean_log_m_pen_knn_xood, "pen-mahala-xood-knn-log", "log_probability" )
-    
-    # # Mahala xood + KNN pen square log probabilty  
-    # pred_sq_log_m_xood_knn_pen = square_log_probability(pred_mahala_xood, pred_knn_pen, ft_knn_pen.conf.knn_n)
-    # pred_clean_sq_log_m_xood_knn_pen = square_log_probability(pred_clean_mahala_xood, pred_clean_knn_pen, ft_knn_pen.conf.knn_n)
-    # ft_knn_pen.taylor_table(pred_sq_log_m_xood_knn_pen, pred_clean_sq_log_m_xood_knn_pen, "xood-mahala-pen-knn-sq", "square_log_probability")
-
-    # # Mahala Pen + KNN pen square log probabilty  
-    # pred_sq_log_m_pen_knn_pen = square_log_probability(pred_mahala_pen, pred_knn_pen, ft_knn_pen.conf.knn_n)
-    # pred_clean_sq_log_m_pen_knn_pen = square_log_probability(pred_clean_mahala_pen, pred_clean_knn_pen, ft_knn_pen.conf.knn_n)
-    # ft_knn_pen.taylor_table(pred_sq_log_m_pen_knn_pen, pred_clean_sq_log_m_pen_knn_pen, "pen-mahala-pen-knn-log-sq", "square_log_probability")
-
-    # # Mahala xood + KNN Xood square log probabilty  
-    # pred_sq_log_m_xood_knn_xood = square_log_probability(pred_mahala_xood, pred_knn_xood, ft_knn_xood.conf.knn_n)
-    # pred_clean_sq_log_m_xood_knn_xood = square_log_probability(pred_clean_mahala_xood, pred_clean_knn_xood, ft_knn_xood.conf.knn_n)
-    # ft_knn_xood.taylor_table(pred_sq_log_m_xood_knn_xood, pred_clean_sq_log_m_xood_knn_xood, "xood-mahala-xood-knn-log-sq", "square_log_probability")
-
-    # # Mahala pen + KNN xood square log probabilty  
-    # pred_sq_log_m_pen_knn_xood = square_log_probability(pred_mahala_pen, pred_knn_xood, ft_knn_xood.conf.knn_n)
-    # pred_clean_sq_log_m_pen_knn_xood = square_log_probability(pred_clean_mahala_pen, pred_clean_knn_xood, ft_knn_xood.conf.knn_n)
-    # ft_knn_xood.taylor_table(pred_sq_log_m_pen_knn_xood, pred_clean_sq_log_m_pen_knn_xood, "pen-mahala-xood-knn-log-sq", "square_log_probability")
-
-
-    # # Mahala xood + KNN pen normalized_log_probability
-    # pred_n_log_m_xood_knn_pen = normalized_log_probability(pred_mahala_xood, pred_knn_pen,
-    #         ft_mahala_xood.conf.mahala_mean, ft_knn_pen.conf.knn_mean, ft_mahala_xood.conf.mahala_std, ft_knn_pen.conf.knn_std, ft_knn_pen.conf.knn_n)
-    # pred_n_clean_log_m_xood_knn_pen = normalized_log_probability(pred_clean_mahala_xood, pred_clean_knn_pen, 
-    #         ft_mahala_xood.conf.mahala_mean, ft_knn_pen.conf.knn_mean, ft_mahala_xood.conf.mahala_std, ft_knn_pen.conf.knn_std, ft_knn_pen.conf.knn_n)
-    # ft_knn_pen.taylor_table(pred_n_log_m_xood_knn_pen, pred_n_clean_log_m_xood_knn_pen, "xood-mahala-pen-knn-n-log","normalized_log_probability")
-    
-    # # Mahala Pen + KNN pen normalized_log_probability
-    # pred_n_log_m_pen_knn_pen = normalized_log_probability(pred_mahala_pen, pred_knn_pen,
-    #         ft_mahala_pen.conf.mahala_mean, ft_knn_pen.conf.knn_mean, ft_mahala_pen.conf.mahala_std, ft_knn_pen.conf.knn_std, ft_knn_pen.conf.knn_n)
-    # pred_n_clean_log_m_pen_knn_pen = normalized_log_probability(pred_clean_mahala_pen, pred_clean_knn_pen, 
-    #         ft_mahala_pen.conf.mahala_mean, ft_knn_pen.conf.knn_mean, ft_mahala_pen.conf.mahala_std, ft_knn_pen.conf.knn_std, ft_knn_pen.conf.knn_n)
-    # ft_knn_pen.taylor_table(pred_n_log_m_pen_knn_pen, pred_n_clean_log_m_pen_knn_pen, "pen-mahala-pen-knn-n-log","normalized_log_probability")
-    
-    # # Mahala xood + KNN Xood normalized_log_probability
-    # pred_n_log_m_xood_knn_xood = normalized_log_probability(pred_mahala_xood, pred_knn_xood,
-    #         ft_mahala_xood.conf.mahala_mean, ft_knn_xood.conf.knn_mean, ft_mahala_xood.conf.mahala_std, ft_knn_xood.conf.knn_std, ft_knn_xood.conf.knn_n)
-    # pred_n_clean_log_m_xood_knn_xood = normalized_log_probability(pred_clean_mahala_xood, pred_clean_knn_xood, 
-    #         ft_mahala_xood.conf.mahala_mean, ft_knn_xood.conf.knn_mean, ft_mahala_xood.conf.mahala_std, ft_knn_xood.conf.knn_std, ft_knn_xood.conf.knn_n)
-    # ft_knn_xood.taylor_table(pred_n_log_m_xood_knn_xood, pred_n_clean_log_m_xood_knn_xood, "xood-mahala-xood-knn-n-log","normalized_log_probability")
-    
-    # # Mahala Pen + KNN xood normalized_log_probability
-    # pred_n_log_m_pen_knn_xood = normalized_log_probability(pred_mahala_pen, pred_knn_xood,
-    #         ft_mahala_pen.conf.mahala_mean, ft_knn_xood.conf.knn_mean, ft_mahala_pen.conf.mahala_std, ft_knn_xood.conf.knn_std, ft_knn_xood.conf.knn_n)
-    # pred_n_clean_log_m_pen_knn_xood = normalized_log_probability(pred_clean_mahala_pen, pred_clean_knn_xood, 
-    #         ft_mahala_pen.conf.mahala_mean, ft_knn_xood.conf.knn_mean, ft_mahala_pen.conf.mahala_std, ft_knn_xood.conf.knn_std, ft_knn_xood.conf.knn_n)
-    # ft_knn_xood.taylor_table(pred_n_log_m_pen_knn_xood, pred_n_clean_log_m_pen_knn_xood, "pen-mahala-xood-knn-n-log","normalized_log_probability")
-    
-    
-    # if isinstance(pred_mahala_xood, dict):
-    #     for key in pred_mahala_xood.keys():
-    #         print("Dataset for Mahala Extreme Values: ", key)
-    #         print("Mahala Xood + Knn Pen : Log Probability - Pearson Coefficient value: ", pearson_coefficient(pred_mahala_xood[key], pred_log_m_xood_knn_pen[key]))
-    #         print("Mahala Pen + KNN pen : Log Probability - Pearson Coefficient value: ", pearson_coefficient(pred_mahala_xood[key], pred_log_m_pen_knn_pen[key]))
-    #         print("Mahala xood + KNN Xood : Log Probability - Pearson Coefficient value: ", pearson_coefficient(pred_mahala_xood[key], pred_log_m_xood_knn_xood[key]))
-    #         print("Mahala Pen + KNN xood : Log Probability - Pearson Coefficient value: ", pearson_coefficient(pred_mahala_xood[key], pred_log_m_pen_knn_xood[key]))
-    #         print("Mahala Xood + Knn Pen : Sq Log Probability - Pearson Coefficient value: ", pearson_coefficient(pred_mahala_xood[key], pred_sq_log_m_xood_knn_pen[key]))
-    #         print("Mahala Pen + Knn Pen : Sq Log Probability - Pearson Coefficient value: ", pearson_coefficient(pred_mahala_xood[key], pred_sq_log_m_pen_knn_pen[key]))
-    #         print("Mahala Xood + Knn Xood : Sq Log Probability - Pearson Coefficient value: ", pearson_coefficient(pred_mahala_xood[key], pred_sq_log_m_xood_knn_xood[key]))
-    #         print("Mahala Pen + Knn Xood : Sq Log Probability - Pearson Coefficient value: ", pearson_coefficient(pred_mahala_xood[key], pred_sq_log_m_pen_knn_xood[key]))
-    #         print("Mahala Xood + Knn Pen : N - Log Probability - Pearson Coefficient value: ", pearson_coefficient(pred_mahala_xood[key], pred_n_log_m_xood_knn_pen[key]))
-    #         print("Mahala Pen + Knn Pen : N - Log Probability - Pearson Coefficient value: ", pearson_coefficient(pred_mahala_xood[key], pred_n_log_m_pen_knn_pen[key]))
-    #         print("Mahala Xood + Knn Xood : N - Log Probability - Pearson Coefficient value: ", pearson_coefficient(pred_mahala_xood[key], pred_n_log_m_xood_knn_xood[key]))
-    #         print("Mahala Pen + Knn Xood : N - Log Probability - Pearson Coefficient value: ", pearson_coefficient(pred_mahala_xood[key], pred_n_log_m_pen_knn_xood[key]))
-    #         print("<<<<<<<<==================================================================================>>>>>>>")
-    
-
-    # if isinstance(pred_knn_pen, dict):
-    #     for key in pred_knn_pen.keys():
-    #         print("Dataset for KNN Penultimate Layer: ", key)
-    #         print("Mahala Xood + Knn Pen : Log Probability - Pearson Coefficient value: ", pearson_coefficient(pred_knn_pen[key], pred_log_m_xood_knn_pen[key]))
-    #         print("Mahala Pen + KNN pen : Log Probability - Pearson Coefficient value: ", pearson_coefficient(pred_knn_pen[key], pred_log_m_pen_knn_pen[key]))
-    #         print("Mahala xood + KNN Xood : Log Probability - Pearson Coefficient value: ", pearson_coefficient(pred_knn_pen[key], pred_log_m_xood_knn_xood[key]))
-    #         print("Mahala Pen + KNN xood : Log Probability - Pearson Coefficient value: ", pearson_coefficient(pred_knn_pen[key], pred_log_m_pen_knn_xood[key]))
-    #         print("Mahala Xood + Knn Pen : Sq Log Probability - Pearson Coefficient value: ", pearson_coefficient(pred_knn_pen[key], pred_sq_log_m_xood_knn_pen[key]))
-    #         print("Mahala Pen + Knn Pen : Sq Log Probability - Pearson Coefficient value: ", pearson_coefficient(pred_knn_pen[key], pred_sq_log_m_pen_knn_pen[key]))
-    #         print("Mahala Xood + Knn Xood : Sq Log Probability - Pearson Coefficient value: ", pearson_coefficient(pred_knn_pen[key], pred_sq_log_m_xood_knn_xood[key]))
-    #         print("Mahala Pen + Knn Xood : Sq Log Probability - Pearson Coefficient value: ", pearson_coefficient(pred_knn_pen[key], pred_sq_log_m_pen_knn_xood[key]))
-    #         print("Mahala Xood + Knn Pen : N - Log Probability - Pearson Coefficient value: ", pearson_coefficient(pred_knn_pen[key], pred_n_log_m_xood_knn_pen[key]))
-    #         print("Mahala Pen + Knn Pen : N - Log Probability - Pearson Coefficient value: ", pearson_coefficient(pred_knn_pen[key], pred_n_log_m_pen_knn_pen[key]))
-    #         print("Mahala Xood + Knn Xood : N - Log Probability - Pearson Coefficient value: ", pearson_coefficient(pred_knn_pen[key], pred_n_log_m_xood_knn_xood[key]))
-    #         print("Mahala Pen + Knn Xood : N - Log Probability - Pearson Coefficient value: ", pearson_coefficient(pred_knn_pen[key], pred_n_log_m_pen_knn_xood[key]))
-    #         print("<<<<<<<<==================================================================================>>>>>>>")
-
-
-    
 
     # ft_mahala.create_summary_combine(ft_mahala.conf.softmax, "baseline")
     # ft.create_summary(ft.conf.energy, "energy")
@@ -702,20 +841,27 @@ def test_ood(dataset, model, alpha):
     #ft.create_summary(ft.conf.predict_knn_faiss, f"knn-open-ood")
     # ft.test_distorted()
     # ft.test_ood()
+    
+    
 
 
 if __name__ == "__main__":
     
     start_time = time.time()
     
-    # sys.stdout = open("console_output_knn_comb.txt", "w")
+    # sys.stdout = open("console_output.txt", "w")
     # test_ood("mnist", "lenet", 0.5)
     # test_ood("cifar10", "resnet", 0.5)
+    # test_ood("cifar10", "cifar10_VitMSN", 0.5)
+
 
     # test_ood("cifar100", "resnet", 0.5)
-    # test_ood("document", "resnet50_docu", 0.5)
+    test_ood("document", "resnet50_docu", 0.5)
 
-    test_ood("imagenet", "resnet50", 0.5)
+    # test_ood("imagenet", "resnet50", 0.5)
+    
+    # test_ood("imagenet200", "resnet18_224x224", 0.5)
+
     # for i in [0.7]:
     #   test_ood("imagenet", "resnet34", i)
     #   test_ood("cifar10", "resnet", i)
@@ -733,3 +879,4 @@ if __name__ == "__main__":
     print("\nExecution Complete") 
     time_taken = convert_seconds((time.time() - start_time))
     print("--- time taken :  %s ---" % time_taken)
+    

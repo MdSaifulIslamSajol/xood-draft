@@ -7,7 +7,7 @@ from torch.utils.data import TensorDataset, DataLoader
 from torch import nn
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
-from data import get_images_and_labels
+# from data import get_images_and_labels
 from typing import Callable, Dict
 from utils import get_torch_device
 from scipy.spatial.distance import mahalanobis
@@ -18,6 +18,7 @@ import faiss
 from sklearn.neighbors import KNeighborsClassifier
 import pickle
 import sys
+import time
 
 
 def normalizer(x): return x / np.linalg.norm(x, axis=-1, keepdims=True) + 1e-10
@@ -135,7 +136,8 @@ class FeatureExtractor(nn.Module):
         output = self.model(x)
         return output, self._features
     
-    def predict(self, images):   # predict_openood version
+    def predict_openood(self, images):   # predict_openood
+        # replace the predict with predict_openood when running with document dataset
         """ 
         receives an array of (5000,3,32,32) size (for cifar10)
         returns output_np and features
@@ -156,6 +158,7 @@ class FeatureExtractor(nn.Module):
         features = {}
         with torch.no_grad():
             for i, data in enumerate(images):
+                
                 # print(f"Computing predictions: {i + 1}/{len(images)}             ", end="\r")
                 # print(" 
                 # print("data shape: ", data.keys())
@@ -184,13 +187,20 @@ class FeatureExtractor(nn.Module):
                     features = {key: [] for key in self._features.keys()}
                 for k in features.keys():
                     features[k].append(feat[k])
+                
+                # # Stop after a certain number of batches (e.g., 10)
+                # if i== 5:
+                #     break
+                    
             for k in features.keys():
                 features[k] = torch.cat(features[k]).cpu().detach().numpy()
         output_np = torch.cat(output).cpu().detach().numpy()
         labels_np = torch.cat(labels).cpu().detach().numpy()
         return labels_np, output_np, features
 
-    def predict_knn(self, images):   # predict_knn_openood version
+    def predict_knn_openood(self, images):  # predict_knn_openood
+        # replace the predict_knn with predict_knn_openood when running with document dataset
+    
         print("confidenciator.py  ==> FeatureExtractor.predict_knn()")
         print("predict_knn() openood version called")
 
@@ -236,11 +246,68 @@ class FeatureExtractor(nn.Module):
                 
                 if out is not None:
                     output.append(out)
+                    
+                # # Stop after a certain number of batches (e.g., 10)
+                # if i== 5:
+                #     break
+                
             self.knn_features = np.concatenate(pen_features, axis=0)
         return output if len(output) == 0 else torch.cat(output), self.knn_features
 
-    # predict_docu
-    def predict_docu(self, images):   # predict_docu version (predict function for document data)
+    def predict(self, images):   # predict_docu
+        # rename this function to predict() when running with document datasets
+        # keep the name predict_docu() if you are not using document dataset, rather using openood datasets
+        """ 
+        receives an array of (5000,3,32,32) size (for cifar10)
+        returns output_np and features
+        output_np.shape = (50000,10)  # predictions of corresponding images
+        features = a dictionary containing the Max_relu_n, Min_relu_n for all the images
+        this function adds activation layer features Max_relu_n, Min_relu_n
+        """
+        print("confidenciator.py  ==> FeatureExtractor.predict()")
+        print("predict() document version called")
+    
+        output = []
+        labels = []
+        # features = {key: [] for key in ['data', 'label']}
+        features = {}
+
+        with torch.no_grad():
+            for i, data_batch in enumerate(images):
+                # Extract data and label from the batch
+                data = data_batch[0]  # images tensor
+                label = data_batch[1]  # labels tensor
+    
+                # Move data to the appropriate device
+                data = data.to(self.device)
+    
+                # Forward pass to get output and features
+                out, feat = self(data)
+                output.append(out)
+                labels.append(label)
+    
+                # # Append data and label to features
+                # features['data'].append(data.cpu().detach().numpy())
+                # features['label'].append(label.cpu().detach().numpy())
+    
+                if len(features) == 0:  # Ensure only data and label are in the features dict initially
+                    features.update({key: [] for key in feat.keys()})
+                for k in feat.keys():
+                    features[k].append(feat[k].cpu().detach().numpy())
+            
+            # Concatenate all the collected features
+            for k in features.keys():
+                features[k] = np.concatenate(features[k], axis=0)
+            
+        output_np = torch.cat(output).cpu().detach().numpy()
+        labels_np = torch.cat(labels).cpu().detach().numpy()
+        
+        return labels_np, output_np, features
+    
+    def predict_MR(self, images):   # predict_docu
+        # rename this function to  predict()  when running with document datasets
+        # keep the name predict_docu() if you are not using document dataset, rather using openood datsets
+        # predict_docu(self, images):
         """ 
         receives an array of (5000,3,32,32) size (for cifar10)
         returns output_np and features
@@ -303,10 +370,13 @@ class FeatureExtractor(nn.Module):
         # labels_np = torch.cat(labels).cpu().detach().numpy()
         labels_np = []
         return labels_np, output_np, features
+
     
     
 
-    def predict_knn_docu(self, images):  # predict_knn_docu version (predict_knn function for document data)
+    def predict_knn(self, images):  # predict_knn_docu 
+    # rename this function to  predict_knn()  when running with document datasets
+    # keep the name to predict_knn_docu() if you are running openood dataset
         print("confidenciator.py  ==> FeatureExtractor.predict_knn()")
         print("predict_knn() document version called")
 
@@ -402,7 +472,7 @@ class FeatureExtractor(nn.Module):
 
 class Confidenciator:
 
-    def __init__(self, model: nn.Module, transform, train_set,mahala_xood,knn_pen , features=(MinMax(),),reg=10):
+    def __init__(self, model: nn.Module, transform, train_set, mahala_xood, knn_pen , features=(MinMax(),),reg= 1):
         print("\n\n ##  Creating Confidenciator  ##")
         print("confidenciator.py  ==> __init__()")
         self.model = FeatureExtractor(model, transform, features)
@@ -529,15 +599,25 @@ class Confidenciator:
         print("\nconfidenciator.py  ==> Confidenciator.add_prediction_and_features_dl()")
         
         labels, pred, features = self.model.predict(dataloader)
+        # print(" flag 1.333 features.shape", features.shape)
         
         if len(self.feat_cols) == 0:
             self.feat_cols = ["Max_out", "Min_out"] + list(features.keys())
-            
-        df = pd.DataFrame(features)
-        # df["pred"] = np.argmax(pred, axis=-1)
-        # df["is_correct"] = df["pred"] == labels
+        
+        print(" flag 1.323 len(labels)",len(labels))
+        df = pd.DataFrame()
+        df["pred"] = np.argmax(pred, axis=-1)
+        df["label"] = labels
+        df["is_correct"] = df["pred"] == df["label"].to_numpy()
         df["Max_out"] = np.max(pred, axis=-1)
         df["Min_out"] = -np.min(pred, axis=-1)
+        df = pd.concat([df, pd.DataFrame(features, index=df.index)], axis=1)
+            
+        # df = pd.DataFrame(features)
+        # df["pred"] = np.argmax(pred, axis=-1)
+        # df["is_correct"] = df["pred"] == labels
+        # df["Max_out"] = np.max(pred, axis=-1)
+        # df["Min_out"] = -np.min(pred, axis=-1)
         # self.extreme_value_vector = df[self.feat_cols]
         print("returning add_prediction_and_features_dl() with shape:", df.shape)
         return df
@@ -653,7 +733,7 @@ class Confidenciator:
 
     def predict_knn_faiss(self, dataset: pd.DataFrame):
         print("confidenciator.py  ==> Confidenciator.predict_knn_faiss()")
-        print("TESTING DATASET: ", dataset.shape)
+        print("flag 2.12a TESTING DATASET: ", dataset.shape)
         #dataset = dataset[self.feat_cols]
         # if not isInTest:
         #   output, feature_normed = self.model.predict_knn(get_images_and_labels(dataset, labels=False, chw=True), isOOD=True)
@@ -678,23 +758,41 @@ class Confidenciator:
         print("Test Feature Normed : ", feature_normed.shape)
         print("Test Output shape : ", feature_normed.shape)
         
+        t1 = time.time()
+        
         D, _ = self.index.search((np.ascontiguousarray(
             feature_normed.astype(np.float32))), self.K)
         kth_dist = -D[:, -1]
+        t2 = time.time()
+        
+        elapsed_time = t2 -t1
+        print("flag 2.12b Elapsed time knn:", elapsed_time, "seconds")
+
         return kth_dist
 
     def predict_mahala(self, dataset: pd.DataFrame):  # this was buggy, now its working properly
         print("confidenciator.py  ==> Confidenciator.predict_mahala()")
-        print("TESTING DATASET: ", dataset.shape)
+        print("flag 2.11a TESTING DATASET: ", dataset.shape)
         # if not all(col in dataset.columns for col in self.feat_cols):
         #     dataset = self.add_prediction_and_features(dataset)
-            
+         
+        t1 = time.time()
         # x = self.pt.transform(self.scaler.transform(dataset[self.feat_cols]))
         x = self.pt.transform(self.scaler.transform(dataset))
         
         if self.reg < np.inf:
-            return -np.apply_along_axis(lambda row: mahalanobis(row, self.mean, self.inv_cov), 1, x)
-        return -np.apply_along_axis(lambda row: np.linalg.norm(row - self.mean, ord=2), 1, x)
+            pred_m = -np.apply_along_axis(lambda row: mahalanobis(row, self.mean, self.inv_cov), 1, x)
+            t2 = time.time()
+            elapsed_time = t2 -t1
+            print("flag 2.11b Elapsed time mahala:", elapsed_time, "seconds")
+            return pred_m
+        
+        pred_m = -np.apply_along_axis(lambda row: np.linalg.norm(row - self.mean, ord=2), 1, x)
+        t2 = time.time()
+        elapsed_time = t2 -t1
+        print("flag 2.11b Elapsed time mahala:", elapsed_time, "seconds")
+
+        return pred_m
     
     def predict_mahala_ok(self, dataset: pd.DataFrame):  # this is from the older version
         print("confidenciator.py  ==> Confidenciator.predict_mahala()")
@@ -790,3 +888,8 @@ class Confidenciator:
 def split_features(features: np.ndarray):
     print("confidenciator.py  ==>  split_features() ")
     return np.concatenate([- np.clip(features, 0, None), - np.clip(-features, 0, None)], axis=1)
+
+
+# to run the code for document dataset you need to rename the function of FeatureExtractor.predict() and FeatureExtractor.predict_knn()
+# rename the function predict_openood() to predict()
+# and predict_knn_openood() to predict_knn()
