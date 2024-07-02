@@ -684,9 +684,9 @@ class Confidenciator:
             cal_img = cal["data"].to_numpy()
             label = cal['label']
 
-            img_shape = (224, 224, 3)
+            #img_shape = (224, 224, 3)
             
-            cal_img = cal_img.reshape(cal_img.shape[0], *img_shape)
+            #cal_img = cal_img.reshape(cal_img.shape[0], *img_shape)
             cal_img = torch.tensor(cal_img, dtype=torch.float)
 
             print("flag 1.334b2 cal_img.shape : ",cal_img.shape)
