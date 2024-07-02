@@ -322,13 +322,14 @@ class FeatureTester:
         #  # Load ID dataset       
         # =============================================================================
         self.data = data.load_dataset(dataset)  # type(self.data) = dict type
-        print(self.data.keys())
+        print("flag 1.412 self.data.keys():",self.data.keys())
         if "Train" in self.data.keys():
             print(type(self.data["Train"]))
         # self.data["Train"] = self.data["Train"].iloc[:100, :]
         # self.data["Val"] = self.data["Val"].iloc[:100, :]
         # self.data["Test"] = self.data["Test"].iloc[:100, :]
         self.testset_data = self.data["Test"]
+        
         
         # =============================================================================
         #  # Load Model       
@@ -373,7 +374,7 @@ class FeatureTester:
                 
             elif feature_model == "knn":
                 print("KNN PART IS GETTING EXECUTED")
-                print("running set  :",name)
+                print("\n\n # running set  :",name)
                 # if not knn_pen:
                 if  knn_pen:
                     self.data[name] = self.conf.add_prediction_and_features_knn(
@@ -623,9 +624,23 @@ class FeatureTester:
 
     def fit(self, c=None, new_cal_set=False):
         print("test_ood.py ==> FeatureTester.fit()")
+        print("flag 1.222 self.cal :", self.cal)
+        print("flag 1.222 type(self.cal) :", type(self.cal))
+
+
         if new_cal_set or not self.cal:
+            # commenting for not testing calibration
+        # if new_cal_set or  self.cal:
+
             print("Creating Calibration Set", flush=True)
+            # self.cal = calibration(self.data["Val"])
             self.cal = calibration(self.data["Val"])
+            
+        # print("flag 1.222b self.cal :", self.cal)
+
+        print("flag 1.222b (self.cal).keys() :", self.cal.keys())
+        
+
         print("Fitting Logistic Regression", flush=True)
         self.conf.fit(self.cal, c=c)
 
@@ -807,8 +822,12 @@ def test_ood(dataset, model, alpha):
     ## FeatureTester__init__(self, dataset: str, model: str, feature_model, folder_name=""
     
     print("\n\n==> a) Calculating LR on Extreme values for Document Datasets..")
+    print("flag 1.1 step 1")
     ft_lr_xood = FeatureTester(dataset, model, feature_model = "mahala", name = "knn", extreme=True, pen=False)
+    print("flag 1.1 step 2")
     ft_lr_xood.fit()
+    print("flag 1.1 step 3")
+
     ft_lr_xood.create_summary(ft_lr_xood.conf.predict_proba, "X-ood-LR")
 
     # print("\n\n==> a) Calculating Mahala on Extreme values..")

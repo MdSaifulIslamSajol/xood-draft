@@ -254,7 +254,7 @@ class FeatureExtractor(nn.Module):
             self.knn_features = np.concatenate(pen_features, axis=0)
         return output if len(output) == 0 else torch.cat(output), self.knn_features
 
-    def predict(self, images):   # predict_docu
+    def predictSS(self, images):   # predict_docu
         # rename this function to predict() when running with document datasets
         # keep the name predict_docu() if you are not using document dataset, rather using openood datasets
         """ 
@@ -304,7 +304,7 @@ class FeatureExtractor(nn.Module):
         
         return labels_np, output_np, features
     
-    def predict_MR(self, images):   # predict_docu
+    def predict(self, images):   # predict_docu MR
         # rename this function to  predict()  when running with document datasets
         # keep the name predict_docu() if you are not using document dataset, rather using openood datsets
         # predict_docu(self, images):
@@ -325,6 +325,7 @@ class FeatureExtractor(nn.Module):
         # images = DataLoader(images, batch_size=128)
         output = []
         labels = []
+        data_imgs = []
         features = {}
         with torch.no_grad():
             for i, data in enumerate(images):
@@ -334,16 +335,27 @@ class FeatureExtractor(nn.Module):
                 
                 # commenting for document
                 # data = data["data"]
-                # label = data["label"]
+                # label = data[0]["label"]
+                
+                # print("flag 1.542 data[0]:", data[0])
+                # print("flag 1.542 data[1]:", data[1])
+
+                # print("flag 1.542 label:", label)
+
 
                 # print("before size of data[0].shape: ", data[0].shape)
                 
                 if isinstance(data, list):
-                    data = data[0].to(self.device)
-
+                    data_img = data[0].to(self.device)
+                    # print(" flag 1.522b len(data[1]):", len(data[1]) )
+                    label = data[1].to(self.device)
+                    # print("flag 1.522a len(data)", len(data_img))
+                    # print("flag 1.522a len(label)", len(label))
                 else:
-                    data = data.to(self.device)
-
+                    print("flag 1.542 it is going to predict() else statement")
+                    data_img = data.to(self.device)
+                    print("flag 1.542c len(data)", len(data))
+                    label = torch.Tensor([0]*len(data_img)).to(self.device)
 
                 # data = data[0].to(self.device)
                 # data = data.to(self.device)
@@ -352,11 +364,18 @@ class FeatureExtractor(nn.Module):
                 #data = torch.reshape(data, (-1,))
                 # print("size of data: ", data.shape)
                 
-                #sys.exit()
-                out, feat = self(data)
+                # sys.exit()
+                out, feat = self(data_img)
                 #print("passing this line")
                 output.append(out)
-                # labels.append(label)
+                
+                print(" flag 1.542d data_img.shape ",data_img.shape)
+
+                data_img = torch.flatten(data_img, start_dim=1)
+                print(" flag 1.542e data_img.shape ",data_img.shape)
+
+                data_imgs.append(data_img)
+                labels.append(label)
                 
                 # print("Self Features in forward funtion is : ",
                 #       self._features.keys())
@@ -367,9 +386,21 @@ class FeatureExtractor(nn.Module):
             for k in features.keys():
                 features[k] = torch.cat(features[k]).cpu().detach().numpy()
         output_np = torch.cat(output).cpu().detach().numpy()
-        # labels_np = torch.cat(labels).cpu().detach().numpy()
-        labels_np = []
-        return labels_np, output_np, features
+        data_imgs_np = torch.cat(data_imgs).cpu().detach().numpy()  # .reshape(0, -1)
+
+        # print(" flag 1.542d data_imgs_np.reshape(0, -1).shape ",data_imgs_np.reshape(0, -1).shape)
+
+        print("flag 1.522a len(labels)", len(labels))
+
+        labels_np = torch.cat(labels).cpu().detach().numpy()
+
+        # labels_np = []
+        print("flag 1.522 len(labels_np)", len(labels_np))
+        print("flag 1.522 len(labels)", len(labels))
+
+        print("flag 1.522 len(output_np)", len(output_np))
+
+        return labels_np, output_np, features, data_imgs_np
 
     
     
@@ -492,7 +523,7 @@ class Confidenciator:
         
         ##
         # train_set_mahala = self.add_prediction_and_features_dl(train_set)
-        train_set_knn = self.add_prediction_and_features_knn(train_set)
+        # train_set_knn = self.add_prediction_and_features_knn(train_set)
         # train_set_final_mahala = self.add_prediction_and_penultimate_features_dl_to_mahala(train_set)
         # print("train set shape After add_prediction_and_features: ", train_set.shape)
         # combine_train_set_mahala_knn = pd.concat([train_set_mahala, train_set_knn], ignore_index=True, axis=1)
@@ -512,70 +543,16 @@ class Confidenciator:
         self.pt_knn = PowerTransformer()
         self.scaler = StandardScaler()
         self.scaler_knn = StandardScaler()
-        print("[self.feat_cols]:\n", [self.feat_cols])
+        print("[flag 1.001 self.feat_cols]:\n", [self.feat_cols])
         x = self.pt.fit_transform(
-            self.scaler.fit_transform(train_set_mahala))
+            self.scaler.fit_transform(train_set_mahala[self.feat_cols]))
+        
+        print("[flag 1.002 self.feat_cols]:\n", [self.feat_cols])
+
         # x = self.pt.fit_transform(
-        #     self.scaler.fit_transform(train_set_mahala[self.feat_cols]))
-        # x_combine = self.pt_combine.fit_transform(self.scaler_combine.fit_transform(combine_train_set_mahala_knn))
-        # x_final_mahala = self.pt_final_mahala.fit_transform(self.scaler_final_mahala.fit_transform(train_set_final_mahala))
-        
-        # if reg < np.inf:
-        #     cov = np.cov(x, rowvar=False)
-        #     # cov_comb = np.cov(x_combine, rowvar=False)
-        #     # cov_final_mahala = np.cov(x_final_mahala, rowvar=False)
-        #     self.inv_cov = np.linalg.inv(
-        #         cov + reg * np.identity(len(self.feat_cols)))
-        #     # self.combine_inv_cov = np.linalg.inv(
-        #     #     cov_comb + reg * np.identity(combine_train_set_mahala_knn.shape[1]))
-        #     # self.final_mahala_inv_cov = np.linalg.inv(
-        #         # cov_final_mahala + reg * np.identity(train_set_final_mahala.shape[1]))
-        # else:
-        #     self.inv_cov = np.identity(len(self.feat_cols))
-            
-            ##
-        if reg < np.inf:
-            cov = np.cov(x, rowvar=False)
-                    # cov_comb = np.cov(x_combine, rowvar=False)
-                    # cov_final_mahala = np.cov(x_final_mahala, rowvar=False)
-            if not mahala_xood:
-                self.inv_cov = np.linalg.inv(cov + reg * np.identity(train_set_mahala.shape[1]))
-            else:
-                self.inv_cov = np.linalg.inv(cov + reg * np.identity(len(self.feat_cols)))
-                    # self.combine_inv_cov = np.linalg.inv(
-                    #     cov_comb + reg * np.identity(combine_train_set_mahala_knn.shape[1]))
-                    # self.final_mahala_inv_cov = np.linalg.inv(
-                        # cov_final_mahala + reg * np.identity(train_set_final_mahala.shape[1]))
-        else:
-            self.inv_cov = np.identity(len(self.feat_cols))
-            
-            ##
-            
-        # self.mean = np.zeros(len(self.feat_cols))
-        if not mahala_xood:
-            self.mean = np.zeros(train_set_mahala.shape[1])
-        else:
-            self.mean = np.zeros(len(self.feat_cols))
-        # self.comb_mean = np.zeros(combine_train_set_mahala_knn.shape[1])
-        # self.mean_final_mahala = np.zeros(train_set_final_mahala.shape[1])
-        self.reg = reg
-        
-        # calculating mahala for trainset
-        self.mahala_train = -np.apply_along_axis(lambda row: mahalanobis(row, self.mean, self.inv_cov), 1, x)
-        
-        mahala_sq = -(self.mahala_train ** 2)
-        self.mahala_mean = np.abs(mahala_sq.mean())
-        self.mahala_std = np.abs(mahala_sq.std())
-        self.mahala_max_mean = self.mahala_train.mean()
-        self.mahala_max_std = self.mahala_train.std()
-        print("**********************")
-        print("Mahala Mean: ", self.mahala_mean)
-        print("Mahala Std: ", self.mahala_std)
-        print("**********************")
-        print("**********************")
-        print("Mahala Max Mean: ", self.mahala_max_mean)
-        print("Mahala Max Std: ", self.mahala_max_std)
-        print("**********************")
+        self.inv_cov = np.identity(len(self.feat_cols))
+        self.mean = np.zeros(len(self.feat_cols))
+        self.reg = reg            
 
     def add_prediction_and_features(self, df: pd.DataFrame):
         print("\nconfidenciator.py  ==> Confidenciator.add_prediction_and_features()")
@@ -598,26 +575,58 @@ class Confidenciator:
     def add_prediction_and_features_dl(self, dataloader):
         print("\nconfidenciator.py  ==> Confidenciator.add_prediction_and_features_dl()")
         
-        labels, pred, features = self.model.predict(dataloader)
+        labels, pred, features, data_imgs = self.model.predict(dataloader)
         # print(" flag 1.333 features.shape", features.shape)
         
         if len(self.feat_cols) == 0:
             self.feat_cols = ["Max_out", "Min_out"] + list(features.keys())
         
         print(" flag 1.323 len(labels)",len(labels))
+        print(" flag 1.323 type(labels)",type(labels))
+
         df = pd.DataFrame()
         df["pred"] = np.argmax(pred, axis=-1)
         df["label"] = labels
+        print(" flag 1.323 data_imgs.shape ",data_imgs.shape)
+
+        data_cols = ['data']*data_imgs.shape[1]
+        # df_data = pd.DataFrame(data_imgs, columns=data_cols)
+        
+        # df["data"] = data_imgs
+        # print(" flag 1.323b df[data].shape ",df["data"] .shape)
+
+
         df["is_correct"] = df["pred"] == df["label"].to_numpy()
         df["Max_out"] = np.max(pred, axis=-1)
         df["Min_out"] = -np.min(pred, axis=-1)
+        # df = pd.concat([df, pd.DataFrame(features, index=df.index)], axis=1)
         df = pd.concat([df, pd.DataFrame(features, index=df.index)], axis=1)
-            
+        df = pd.concat([df, pd.DataFrame(data_imgs, columns=data_cols, index=df.index)], axis=1)
+
         # df = pd.DataFrame(features)
         # df["pred"] = np.argmax(pred, axis=-1)
         # df["is_correct"] = df["pred"] == labels
         # df["Max_out"] = np.max(pred, axis=-1)
         # df["Min_out"] = -np.min(pred, axis=-1)
+        # self.extreme_value_vector = df[self.feat_cols]
+        print("returning add_prediction_and_features_dl() with shape:", df.shape)
+        print(" flag 1.323b df.columns ",df.columns)
+
+        return df
+    
+    def add_prediction_and_features_dl_ours(self, dataloader):
+        print("\nconfidenciator.py  ==> Confidenciator.add_prediction_and_features_dl()")
+        
+        labels, pred, features = self.model.predict(dataloader)
+        
+        if len(self.feat_cols) == 0:
+            self.feat_cols = ["Max_out", "Min_out"] + list(features.keys())
+            
+        df = pd.DataFrame(features)
+        # df["pred"] = np.argmax(pred, axis=-1)
+        # df["is_correct"] = df["pred"] == labels
+        df["Max_out"] = np.max(pred, axis=-1)
+        df["Min_out"] = -np.min(pred, axis=-1)
         # self.extreme_value_vector = df[self.feat_cols]
         print("returning add_prediction_and_features_dl() with shape:", df.shape)
         return df
@@ -665,7 +674,29 @@ class Confidenciator:
         print("confidenciator.py  ==> Confidenciator.fit()")
         nbr_folds = len(cal)
         cal = pd.concat(list(cal.values()), ignore_index=True)
-        cal = self.add_prediction_and_features(cal)
+        # cal = self.add_prediction_and_features(cal)
+        if isinstance(cal, pd.DataFrame):
+            print("flag 1.334 cal.columns : ",cal.columns)
+            print("flag 1.334 cal.columns.unique() : ",cal.columns.unique())
+
+            print("flag 1.334a cal.shape : ",cal.shape)
+
+            cal_img = cal["data"].to_numpy()
+            label = cal['label']
+
+            img_shape = (224, 224, 3)
+            
+            cal_img = cal_img.reshape(cal_img.shape[0], *img_shape)
+            cal_img = torch.tensor(cal_img, dtype=torch.float)
+
+            print("flag 1.334b2 cal_img.shape : ",cal_img.shape)
+            print("flag 1.334c2 label.shape : ",label.shape)
+            cal_data = TensorDataset(cal_img, label)
+            
+            cal_dl = DataLoader(cal_data, batch_size=32)
+            
+        cal = self.add_prediction_and_features_dl(cal_dl)
+
         features = split_features(self.pt.transform(
             self.scaler.transform(cal[self.feat_cols])))
         self.lr = Pipeline([
@@ -837,7 +868,9 @@ class Confidenciator:
     def predict_proba(self, dataset: pd.DataFrame):
         print("confidenciator.py  ==> Confidenciator.predict_proba()")
         if not all(col in dataset.columns for col in self.feat_cols):
-            dataset = self.add_prediction_and_features(dataset)
+            # dataset = self.add_prediction_and_features(dataset)
+            dataset = self.add_prediction_and_features_dl(dataset)
+
         x = self.pt.transform(self.scaler.transform(dataset[self.feat_cols]))
         return self.lr.predict_proba(split_features(x))[:, 1]
 

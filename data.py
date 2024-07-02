@@ -3,12 +3,13 @@ import pandas as pd
 from matplotlib import pyplot as plt
 from skimage import filters
 from sklearn.model_selection import train_test_split
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
-from tensorflow.keras.utils import to_categorical
-from tensorflow.keras.datasets import fashion_mnist, mnist, cifar10, cifar100 as cf100
+# from tensorflow.keras.preprocessing.image import ImageDataGenerator
+# from tensorflow.keras.utils import to_categorical
+# from tensorflow.keras.datasets import fashion_mnist, mnist, cifar10, cifar100 as cf100
 from scipy.io import loadmat
 import torchvision
 import torch
+import random
 import pickle
 from pathlib import Path
 import os
@@ -28,7 +29,10 @@ from OpenOOD.openood_id_ood_and_model_cifar10 import id_dataloader_from_openood_
 from OpenOOD.openood_id_ood_and_model_cifar100 import id_dataloader_from_openood_repo_cifar100 , ood_dataloader_from_openood_repo_cifar100
 from OpenOOD.openood_id_ood_and_model_mnist import id_dataloader_from_openood_repo_mnist , ood_dataloader_from_openood_repo_mnist
 from OpenOOD.openood_id_ood_and_model_imagenet import id_dataloader_from_openood_repo_imagenet , ood_dataloader_from_openood_repo_imagenet
-from document_id_ood_n_model_loader import load_document_id_data, load_document_ood_data
+from OpenOOD.openood_id_ood_and_model_imagenet200 import id_dataloader_from_openood_repo_imagenet200
+from OpenOOD.Openood_v15_loader import ninco_dataloader, ssbhard_dataloader
+from OpenOOD.Openood_v15_loader import load_imagenet200_id_data_from_openood
+from document_id_ood_n_model_loader import load_document_id_data, load_document_ood_data,load_document_rvl_cdip_o_CustomDataset
 
 img_shape = (32, 32, 3)
 imagenet_transform = torchvision.transforms.Compose([
@@ -68,8 +72,17 @@ def load_dataset(name):
     
     elif name == "imagenet":
         img_shape = (224, 224, 3)
+        print("data.py ==> flag 1.411 name ==imagenet")
+
         # return imagenet_validation()
         return load_imagenet_id_data_from_openood()
+    
+    elif name == "imagenet200":
+        print("data.py ==> flag 1.412 name ==imagenet200")
+
+        img_shape = (224, 224, 3)
+        # return imagenet_validation()
+        return load_imagenet200_id_data_from_openood()
     
     elif name == "document":
         img_shape = (224, 224, 3)
@@ -427,7 +440,7 @@ def shifted(df):
     return df
 
 
-def calibration(df):
+def calibration_2(df):
     print("data.py ==> calibration()")
 
     cal_set = df[["data", "label"]].sample(frac=1.).reset_index(drop=True)
@@ -456,6 +469,38 @@ def calibration(df):
         result[f.__name__] = df
     return result
 
+def calibration(df):
+    print("data.py ==> calibration()")
+
+    calset = df[["data", "label"]].sample(frac=1.).reset_index(drop=True)
+    # print("df.columns()", df.columns)
+
+    def clean(x):
+        print("data.py ==> clean()")
+
+        x = x.reset_index(drop=True)
+        return x
+
+    def blurry_to_shifted(x):
+        print("data.py ==> blurry_to_shifted()")
+
+        return shifted(blurry(x))
+
+    def awgn_to_shifted(x):
+        print("data.py ==> awgn_to_shifted()")
+
+        return shifted(awgn(x))
+
+    # mappings = clean, augmented, augmented2, mixed_up, awgn_to_shifted, blurry_to_shifted
+    mappings = clean, mixed_up, awgn_to_shifted, blurry_to_shifted
+
+    result = {}
+    
+    for f in mappings:
+        df = f(calset)
+        df["data"] = quantize_pixels(df["data"])
+        result[f.__name__] = df
+    return result
 
 def distorted(df):
     print("data.py ==> distorted()")
@@ -514,6 +559,13 @@ def stanford_dogs():
     df["label"] = np.NaN
     return df
 
+def get_first_n_batches(dataloader, n=5):
+    batches = []
+    for i, batch in enumerate(dataloader):
+        if i >= n:
+            break
+        batches.append(batch)
+    return batches
 
 def out_of_dist(dataset_name, debug=False):
     datasets = {
@@ -581,12 +633,12 @@ def out_of_dist(dataset_name, debug=False):
             # "SVHN": svhn_as_ood(),
             # "Cifar100": cifar100_as_ood()
             
-            "SVHN": cifar10_ood["svhn"],
+            # "SVHN": cifar10_ood["svhn"],
             "Cifar100": cifar10_ood["cifar100"],
-            "Texture": cifar10_ood["texture"],
-            "Places": cifar10_ood["places"],
-            "MNIST": cifar10_ood["mnist"],
-            "Tiny": cifar10_ood["tin"]
+            # "Texture": cifar10_ood["texture"],
+            # "Places": cifar10_ood["places"],
+            # "MNIST": cifar10_ood["mnist"],
+            # "Tiny": cifar10_ood["tin"]
             
             # "SVHN": cifar10_ood["svhn"].iloc[:10, :],
             # "Cifar100": cifar10_ood["cifar100"].iloc[:10, :],
@@ -617,35 +669,57 @@ def out_of_dist(dataset_name, debug=False):
         
     elif dataset_name == "document":
         document_ood = load_document_ood_data() 
+        
+        first_5_batches_rvl_cdip_n = get_first_n_batches(document_ood["rvl_cdip_n"], n=1)
+        first_5_batches_rvl_cdip_o = get_first_n_batches(document_ood["rvl_cdip_o"], n=1)
         datasets.update({
-            "Rvl_Cdip_N" : document_ood["rvl_cdip_n"],
-            "Rvl_Cdip_O" : document_ood["rvl_cdip_o"]
-        })
+        "Rvl_Cdip_N": first_5_batches_rvl_cdip_n,
+        "Rvl_Cdip_O": first_5_batches_rvl_cdip_o,
+    })
+
+
+        # datasets.update({
+        #     "Rvl_Cdip_N" : document_ood["rvl_cdip_n"],
+        #     "Rvl_Cdip_O" : document_ood["rvl_cdip_o"]
+            
+        # })
      
      
+    # elif dataset_name == "imagenet":
+    #     imagenet_ood = out_of_dict_from_openood_for_imagenet()
+    #     datasets.update({
+    #         "Species": imagenet_ood["species"],
+    #         "OpenImageo": imagenet_ood["openimageo"],
+    #         "MNIST": imagenet_ood["mnist"],
+    #         "Imageneto": imagenet_ood["imageneto"],
+    #         "iNaturalist": imagenet_ood["inaturalist"],
+    #         "Texture": imagenet_ood["texture"],
+    #        })
+        
     elif dataset_name == "imagenet":
-        imagenet_ood = out_of_dict_from_openood_for_imagenet()
+        imagenet_ood = out_of_dict_from_openood_for_imagenet_v15()
         datasets.update({
-            "Species": imagenet_ood["species"],
             "OpenImageo": imagenet_ood["openimageo"],
-            "MNIST": imagenet_ood["mnist"],
-            "Imageneto": imagenet_ood["imageneto"],
             "iNaturalist": imagenet_ood["inaturalist"],
             "Texture": imagenet_ood["texture"],
-        })
-        # for dataset in ['DTD']:
-        #     path = f"imagenet/DTD/images" if dataset == "DTD" else f"imagenet/{dataset}"
-        #     ood = torchvision.datasets.ImageFolder(root=path,
-        #                                            transform=imagenet_transform)
-        #     ood = torch.utils.data.DataLoader(ood, batch_size=len(ood), shuffle=True)
-        #     x = next(iter(ood))[0].numpy()
-        #     x = np.moveaxis(x, 1, 3)
-        #     datasets[dataset] = scale_and_save_in_df(x, np.nan, scale=False)
-        #     print("\n")
-        #     print(dataset)
-        #     print(datasets[dataset])
-        #     print("\n")
 
+            "Ninco": imagenet_ood["ninco"],
+            "SSB Hard": imagenet_ood["ssbhard"],
+
+           })
+
+            
+    elif dataset_name == "imagenet200":
+        imagenet_ood = out_of_dict_from_openood_for_imagenet200()
+        datasets.update({
+            "OpenImageo": imagenet_ood["openimageo"],
+            "iNaturalist": imagenet_ood["inaturalist"],
+            "Texture": imagenet_ood["texture"],
+
+            "Ninco": imagenet_ood["ninco"],
+            "SSB Hard": imagenet_ood["ssbhard"],
+
+           })
     # for name in datasets.keys():
     #     datasets[name]["data"] = quantize_pixels(datasets[name]["data"])
     return datasets
@@ -704,7 +778,6 @@ def out_of_dict_from_openood_for_mnist():
     # access each dataloader
     fashionmnist_loader = ood_dict_for_mnist['nearood']['fashionmnist']
     notmnist_loader = ood_dict_for_mnist['nearood']['notmnist']
-
     cifar10_loader = ood_dict_for_mnist['farood']['cifar10']
     tin_loader = ood_dict_for_mnist['farood']['tin']
     places_loader = ood_dict_for_mnist['farood']['places365']
@@ -725,7 +798,7 @@ def out_of_dict_from_openood_for_mnist():
     os.chdir(old_path)
     return ood_datasets
 
-def load_imagenet_id_data_from_openood():
+def load_imagenet_id_data_from_openood2():
     print(" data.py =>  load_imagenet_id_data_from_openood()")
 
     sys.path.insert(
@@ -736,103 +809,73 @@ def load_imagenet_id_data_from_openood():
     print("returning Train, Val and Test Set for imagenet \n")
     
     return {"Train": train_loader, "Val": val_loader, "Test": test_loader}
-    # with open('/data/saiful/imagenet_datasets2/train_loader_for_imagenet_4096_images.pickle', 'rb') as handle:
-    #     train_loader = pickle.load(handle)
-    # with open('val_loader_for_imagenet_320images.pickle', 'rb') as handle:
-    #     val_loader = pickle.load(handle)
-    # with open('test_loader_for_imagenet_320images.pickle', 'rb') as handle:
-    #     test_loader = pickle.load(handle)
 
-    ## imagenet old testloader and val_loader
+
+def load_imagenet_id_data_from_openood():
+    print("data.py => load_imagenet_id_data_from_openood()")
+
+    sys.path.insert(0, '/home/saiful/confidence-magesh_MR/confidence-magesh/OpenOOD/')
+    train_loader, val_loader, test_loader = id_dataloader_from_openood_repo_imagenet()
     
-    # with open('val_loader_for_imagenet.pickle', 'rb') as handle:
-    #     val_loader = pickle.load(handle)
-    # with open('test_loader_for_imagenet.pickle', 'rb') as handle:
-    #     test_loader = pickle.load(handle)
-        
-    # note: putting val_loader to train_loader
-    # train_features_dict = next(iter(val_loader))
-    # val_features_dict = next(iter(val_loader))
-    # test_features_dict = next(iter(test_loader))
-    ##
+    data_dict = {"Train": [], "Val": [], "Test": []}
 
-    ## imagenet  new datalaoder
-    # with open('/data/saiful/imagenet_datasets2/val_loader_for_imagenet.pickle', 'rb') as handle:
-    #     val_features_dict = pickle.load(handle)
-        
-    # with open('/data/saiful/imagenet_datasets2/test_loader_for_imagenet.pickle', 'rb') as handle:
-    #     test_features_dict = pickle.load(handle)
-        
-    # train_features_dict = val_features_dict
-        
-    #  dict_keys(['image_name', 'data', 'data_aux', 'label', 'soft_label', 'index', 'pseudo'])
-    # print("train_features_dict.keys()", train_features_dict.keys())
-    # print("val_features_dict.keys()", val_features_dict.keys())
-    # print("test_features_dict.keys()", test_features_dict.keys())
+    # # Function to load up to 100 batches from a DataLoader
+    # def load_first_100_batches(loader):
+    #     batch_list = []
+    #     for i, batch in enumerate(loader):
+    #         if i >= 10:  # Stop after 100 batches
+    #             break
+    #         batch_list.append(batch)
+    #     return batch_list
+
+    # # Load batches
+    # data_dict["Train"] = load_first_100_batches(train_loader)
+    # data_dict["Val"] = load_first_100_batches(val_loader)
+    # data_dict["Test"] = load_first_100_batches(test_loader)
     
-
-    # # torch.Size([128, 3, 32, 32])
-    # train_features = train_features_dict["data"]
-    # train_labels = train_features_dict["label"]  # torch.Size([128])
-
-    # val_features = val_features_dict["data"]
-    # val_labels = val_features_dict["label"]
-
-    # test_features = test_features_dict["data"]
-    # test_labels = test_features_dict["label"]
+    data_dict["Train"] = train_loader
+    data_dict["Val"] = val_loader
+    data_dict["Test"] = test_loader
     
-    # # taking only 2k images
-    # # train_features = train_features[:2000]
-    # # train_labels = train_features[:2000]  
+    print("flag 1.234 returning Train, Val and Test Set for imagenet \n")
+    return data_dict
 
-    # # val_features = val_features[:2000]
-    # # val_labels = val_features[:2000]
+def load_imagenet200_id_data_from_openood():
+    print("data.py => load_imagenet200_id_data_from_openood()")
 
-    # # test_features = test_features[:2000]
-    # # test_labels = test_features[:2000]
-
-    # print("len(train_features):", len(train_features))
-    # print("len(train_labels):", len(train_labels))
-
-    # print("len(val_features):", len(val_features))
-    # print("len(val_labels):", len(val_labels))
-
-    # print("len(test_features):", len(test_features))
-    # print("len(test_labels):", len(test_labels))
+    sys.path.insert(0, '/home/saiful/confidence-magesh_MR/confidence-magesh/OpenOOD/')
+    train_loader, val_loader, test_loader = id_dataloader_from_openood_repo_imagenet200()
     
+    data_dict = {"Train": [], "Val": [], "Test": []}
 
 
-    # print("\ntrain_features.shape : ", train_features.shape)
-    # print("test_features.shape : ", test_features.shape)
-    # print("val_features.shape : ", val_features.shape)
+    # # Function to load up to 100 batches from a DataLoader
+    # def load_first_100_batches(loader):
+    #     batch_list = []
+    #     for i, batch in enumerate(loader):
+    #         if i >= 10:  # Stop after 100 batches
+    #             break
+    #         batch_list.append(batch)
+    #     return batch_list
+
+    # # Load batches
+    # data_dict["Train"] = load_first_100_batches(train_loader)
+    # data_dict["Val"] = load_first_100_batches(val_loader)
+    # data_dict["Test"] = load_first_100_batches(test_loader)
     
-    # print("This is minimum value of train_features :",torch.min(train_features))
-    # print("This is maximum value of train_features :",torch.max(train_features))
+    
+    data_dict["Train"] = train_loader
+    data_dict["Val"] = val_loader
+    data_dict["Test"] = test_loader
+    
+    print("flag 1.234 returning Train, Val and Test Set for imagenet \n")
+    return data_dict
 
-    # print("This is minimum value of val_features :",torch.min(val_features))
-    # print("This is maximum value of val_features :",torch.max(val_features))
+# Example use of the function
+# dataset_batches = load_imagenet_id_data_from_openood()
+# print(dataset_batches["Train"])  # Print to verify contents, for example
 
-    # print("This is minimum value of test_features :",torch.min(test_features))
-    # print("This is maximum value of test_features :",torch.max(test_features))
-
-    # converting to numpy
-    # train_features = train_features.numpy()
-    # train_features = np.moveaxis(train_features, 1, 3)  # (1000, 224, 224, 3)
-    # train_labels = np.array(train_labels)
-
-    # val_features = val_features.numpy()
-    # val_features = np.moveaxis(val_features, 1, 3)
-    # val_labels = np.array(val_labels)
-
-    # test_features = test_features.numpy()
-    # test_features = np.moveaxis(test_features, 1, 3)
-    # test_labels = np.array(test_labels)
-
-    # train = scale_and_save_in_df(train_features, train_labels, scale=False)
-    # val = scale_and_save_in_df(val_features, val_labels, scale=False)
-    # test = scale_and_save_in_df(test_features, test_labels, scale=False)
-    # print("returning Train, Val and Test Set for imagenet\n")
-    # return {"Train": test_features, "Val": val_loader, "Test": test_loader}
+            
 
 def out_of_dict_from_openood_for_imagenet():
     print("data.py => out_of_dict_from_openood_for_imagenet()")
@@ -869,8 +912,27 @@ def out_of_dict_from_openood_for_imagenet():
     os.chdir(old_path)
     return ood_datasets
  
-def out_of_dict_from_openood_for_imagenet_old():
-    print("data.py => out_of_dict_from_openood_for_imagenet()")
+
+def inspect_dataloader_format(dataloader, name):
+
+    # Fetch the first batch from the DataLoader
+    first_batch = next(iter(dataloader))
+    
+    # Check if the first batch is a dictionary, tuple, or other
+    if isinstance(first_batch, dict):
+        print(f"{name}: Batch is a dictionary with keys: {first_batch.keys()}")
+        for key, value in first_batch.items():
+            print(f"  Key: {key}, Type: {type(value)}, Data shape/content: {value.shape if hasattr(value, 'shape') else value}")
+    elif isinstance(first_batch, tuple):
+        print(f"{name}: Batch is a tuple with length {len(first_batch)}")
+        for i, item in enumerate(first_batch):
+            print(f"  Element {i}, Type: {type(item)}, Data shape/content: {item.shape if hasattr(item, 'shape') else item}")
+    else:
+        print(f"{name}: Batch type is {type(first_batch)}")
+        
+        
+def out_of_dict_from_openood_for_imagenet_v15():
+    print("data.py => out_of_dict_from_openood_for_imagenet_v15()")
 
     old_path = Path.cwd()
     os.chdir("/home/saiful/confidence-magesh_MR/confidence-magesh")
@@ -878,146 +940,92 @@ def out_of_dict_from_openood_for_imagenet_old():
     sys.path.insert(
         0, '/home/saiful/confidence-magesh_MR/confidence-magesh')
 
-    ##
-    # with open('imageneto_loader_for_imagenet_320images.pickle', 'rb') as handle:
-    #     ood_dict_for_imageneto = pickle.load(handle)
-
-    # with open('mnist_loader_for_imagenet_320images.pickle', 'rb') as handle:
-    #     ood_dict_for_mnist = pickle.load(handle)
-
-    # with open('openimageo_loader_for_imagenet_320images.pickle', 'rb') as handle:
-    #     ood_dict_for_openimageo = pickle.load(handle)
-
-    # with open('species_loader_for_imagenet_320images.pickle', 'rb') as handle:
-    #     ood_dict_for_species = pickle.load(handle)
-
-    # with open('inaturalist_loader_for_imagenet_320images.pickle', 'rb') as handle:
-    #     ood_dict_for_inaturalist = pickle.load(handle)
-
-    # with open('texture_loader_for_imagenet_320images.pickle', 'rb') as handle:
-    #     ood_dict_for_texture = pickle.load(handle)
-    ##
+    ood_dict_for_imagenet = ood_dataloader_from_openood_repo_imagenet()
     
-    # commenting only for inat
-    with open('imageneto_loader_for_imagenet.pickle', 'rb') as handle:
-        ood_dict_for_imageneto = pickle.load(handle)
+    print("type(ood_dict_for_imagenet)  :,type(ood_dict_for_imagenet)")
+    print("ood_dict_for_imagenet.keys():", ood_dict_for_imagenet.keys()) #dict_keys(['val', 'nearood', 'farood'])
+    print("ood_dict_for_imagenet[nearood].keys():",ood_dict_for_imagenet["nearood"].keys()) # dict_keys(['cifar100', 'tin'])
+    print("ood_dict_for_imagenet[farood].keys():",ood_dict_for_imagenet["farood"].keys()) # dict_keys(['mnist', 'svhn', 'texture', 'place365'])
 
-    with open('mnist_loader_for_imagenet.pickle', 'rb') as handle:
-        ood_dict_for_mnist = pickle.load(handle)
-
-    with open('openimageo_loader_for_imagenet.pickle', 'rb') as handle:
-        ood_dict_for_openimageo = pickle.load(handle)
-
-    with open('species_loader_for_imagenet.pickle', 'rb') as handle:
-        ood_dict_for_species = pickle.load(handle)
-
-    with open('inaturalist_loader_for_imagenet.pickle', 'rb') as handle:
-        ood_dict_for_inaturalist = pickle.load(handle)
-
-    with open('texture_loader_for_imagenet.pickle', 'rb') as handle:
-        ood_dict_for_texture = pickle.load(handle)
-    ##
-
-    species_loader = ood_dict_for_species
-    openimageo_loader = ood_dict_for_openimageo
-    imageneto_loader = ood_dict_for_imageneto
-    mnist_loader = ood_dict_for_mnist
-    inaturalist_loader = ood_dict_for_inaturalist
-    texture_loader = ood_dict_for_texture
-
-    # species
-    print("\n# species  from openood ")
-    species_features_dict = next(iter(species_loader))
-    print("species_features_dict.keys():", species_features_dict.keys())
-    # cifar100_imgtnsr.shape = torch.Size([128, 3, 32, 32])
-    species_imgtensr = species_features_dict["data"]
-    # cifar100_label.shape = torch.Size([128])
-    species_label = species_features_dict["label"]
-    species_imgnp = species_imgtensr.numpy()  # shape (128, 3, 32, 32)
-    # converting to (128, 32, 32, 3)
-    species_imgnp = np.moveaxis(species_imgnp, 1, 3)
-    df_species = scale_and_save_in_df(species_imgnp, np.nan, scale=False)
-
-    # openimageo
-    print("\n# openimageo  from openood ")
-    openimageo_features_dict = next(iter(openimageo_loader))
-    openimageo_imgtensr = openimageo_features_dict["data"]
-    openimageo_label = openimageo_features_dict["label"]
-    openimageo_imgnp = openimageo_imgtensr.numpy()
-    # mnist_imgnp.shape (128, 32, 32, 3)
-    openimageo_imgnp = np.moveaxis(openimageo_imgnp, 1, 3)
-    df_openimageo = scale_and_save_in_df(openimageo_imgnp, np.nan, scale=False)
-
-    # imageneto
-    print("\n# imageneto  from openood ")
-    imageneto_features_dict = next(iter(imageneto_loader))
-    imageneto_imgtensr = imageneto_features_dict["data"]
-    imageneto_label = imageneto_features_dict["label"]
-    imageneto_imgnp = imageneto_imgtensr.numpy()
-    imageneto_imgnp = np.moveaxis(imageneto_imgnp, 1, 3)
-    df_imageneto = scale_and_save_in_df(imageneto_imgnp, np.nan, scale=False)
-
-    # inaturalist
-    print("\n# inaturalist  from openood ")
-    inaturalist_features_dict = next(iter(inaturalist_loader))
-    print("inaturalist_features_dict.keys():",
-          inaturalist_features_dict.keys())
-    # cifar100_imgtnsr.shape = torch.Size([128, 3, 32, 32])
-    inaturalist_imgtensr = inaturalist_features_dict["data"]
-    # cifar100_label.shape = torch.Size([128])
-    inaturalist_label = inaturalist_features_dict["label"]
-    inaturalist_imgnp = inaturalist_imgtensr.numpy()  # shape (128, 3, 32, 32)
-    # converting to (128, 32, 32, 3)
-    inaturalist_imgnp = np.moveaxis(inaturalist_imgnp, 1, 3)
-    df_inaturalist = scale_and_save_in_df(
-        inaturalist_imgnp, np.nan, scale=False)
-
-    # mnist
-    print("\n# mnist  from openood ")
-    mnist_features_dict = next(iter(mnist_loader))
-    mnist_imgtensr = mnist_features_dict["data"]
-    mnist_label = mnist_features_dict["label"]
-    mnist_imgnp = mnist_imgtensr.numpy()
-    # mnist_imgnp.shape (128, 32, 32, 3)
-    mnist_imgnp = np.moveaxis(mnist_imgnp, 1, 3)
-    df_mnist = scale_and_save_in_df(mnist_imgnp, np.nan, scale=False)
-
-    # texture
-    print("\n# texture  from openood ")
-    texture_features_dict = next(iter(texture_loader))
-    texture_imgtensr = texture_features_dict["data"]
-    texture_label = texture_features_dict["label"]
-    texture_imgnp = texture_imgtensr.numpy()
-    texture_imgnp = np.moveaxis(texture_imgnp, 1, 3)
-    df_texture = scale_and_save_in_df(texture_imgnp, np.nan, scale=False)
+    # =============================================================================
+    # from openood_v1 loader
+    # =============================================================================
+    inaturalist_loader = ood_dict_for_imagenet['nearood']['inaturalist']
+    openimageo_loader = ood_dict_for_imagenet['nearood']['openimageo']
+    texture_loader = ood_dict_for_imagenet['farood']['texture']
     
-    print("This is minimum value of species_imgtensr :",torch.min(species_imgtensr))
-    print("This is maximum value of species_imgtensr :",torch.max(species_imgtensr))
+    ninco_loader = ninco_dataloader()
+    ssbhard_loader =  ssbhard_dataloader()
+    
+    # == ##
 
-    print("This is minimum value of openimageo_imgtensr :",torch.min(openimageo_imgtensr))
-    print("This is maximum value of openimageo_imgtensr :",torch.max(openimageo_imgtensr))
+    print("flag 1.410")
 
-    print("This is minimum value of imageneto_imgtensr :",torch.min(imageneto_imgtensr))
-    print("This is maximum value of imageneto_imgtensr :",torch.max(imageneto_imgtensr))
+    # # Inspect both DataLoaders
+    # inspect_dataloader_format(ninco_loader, "Ninco Loader")
+    # inspect_dataloader_format(texture_loader, "Texture Loader")
 
-    print("This is minimum value of inaturalist_imgtensr :",torch.min(inaturalist_imgtensr))
-    print("This is maximum value of inaturalist_imgtensr :",torch.max(inaturalist_imgtensr))
-
-    print("This is minimum value of mnist_imgtensr :",torch.min(mnist_imgtensr))
-    print("This is maximum value of mnist_imgtensr :",torch.max(mnist_imgtensr))
-
-    print("This is minimum value of texture_imgtensr :",torch.min(texture_imgtensr))
-    print("This is maximum value of texture_imgtensr :",torch.max(texture_imgtensr))
+    ## == ##
 
     ood_datasets = {
-        "species": df_species,
-        "openimageo": df_openimageo,
-        "imageneto": df_imageneto,
-        "mnist": df_mnist,
-        "inaturalist": df_inaturalist,
-        "texture": df_texture
+        "openimageo": openimageo_loader,
+        "inaturalist": inaturalist_loader,
+        "texture": texture_loader,
+        "ninco": ninco_loader,
+        "ssbhard": ssbhard_loader,
+
+
     }
-    print("ood_datasets.keys():", ood_datasets.keys())
+    print("flag 1.411 ood_datasets.keys():", ood_datasets.keys())
+    os.chdir(old_path)
+    return ood_datasets
+
+def out_of_dict_from_openood_for_imagenet200():
+    print("data.py => out_of_dict_from_openood_for_imagenet200()")
+
+    old_path = Path.cwd()
+    os.chdir("/home/saiful/confidence-magesh_MR/confidence-magesh")
+    temp_path = Path.cwd()
+    sys.path.insert(
+        0, '/home/saiful/confidence-magesh_MR/confidence-magesh')
+
+    ood_dict_for_imagenet = ood_dataloader_from_openood_repo_imagenet()
+    
+    print("type(ood_dict_for_imagenet)  :,type(ood_dict_for_imagenet)")
+    print("ood_dict_for_imagenet.keys():", ood_dict_for_imagenet.keys()) #dict_keys(['val', 'nearood', 'farood'])
+    print("ood_dict_for_imagenet[nearood].keys():",ood_dict_for_imagenet["nearood"].keys()) # dict_keys(['cifar100', 'tin'])
+    print("ood_dict_for_imagenet[farood].keys():",ood_dict_for_imagenet["farood"].keys()) # dict_keys(['mnist', 'svhn', 'texture', 'place365'])
+
+    # =============================================================================
+    # from openood_v1 loader
+    # =============================================================================
+    inaturalist_loader = ood_dict_for_imagenet['nearood']['inaturalist']
+    openimageo_loader = ood_dict_for_imagenet['nearood']['openimageo']
+    texture_loader = ood_dict_for_imagenet['farood']['texture']
+    
+    ninco_loader = ninco_dataloader()
+    ssbhard_loader =  ssbhard_dataloader()
+    
+    # == ##
+
+    print("flag 1.410")
+
+    # # Inspect both DataLoaders
+    # inspect_dataloader_format(ninco_loader, "Ninco Loader")
+    # inspect_dataloader_format(texture_loader, "Texture Loader")
+
+    ## == ##
+
+    ood_datasets = {
+        "openimageo": openimageo_loader,
+        "inaturalist": inaturalist_loader,
+        "texture": texture_loader,
+        "ninco": ninco_loader,
+        "ssbhard": ssbhard_loader,
+
+
+    }
+    print("flag 1.411 ood_datasets.keys():", ood_datasets.keys())
     os.chdir(old_path)
     return ood_datasets
 
@@ -1064,12 +1072,12 @@ def out_of_dict_from_openood_for_cifar10():
     
 
     ood_datasets = {
-        "mnist": mnist_loader,
-        "svhn": svhn_loader,
+        # "mnist": mnist_loader,
+        # "svhn": svhn_loader,
         "cifar100": cifar100_loader,
-        "tin": tin_loader,
-        "places": places_loader,
-        "texture": texture_loader,
+        # "tin": tin_loader,
+        # "places": places_loader,
+        # "texture": texture_loader,
     }
     print("ood_datasets.keys():", ood_datasets.keys())
     os.chdir(old_path)
@@ -1419,6 +1427,126 @@ def out_of_dict_from_openood_for_cifar100_pickle():
     os.chdir(old_path)
     return ood_datasets
 
+
+def save_missing_cifar10_indices_images_in_folder_for_mnist_id(missing_indices, folder_name, dataset):
+    print("save_missing_cifar10_indices_images_in_folder_for_mnist_id()")
+
+    # Convert the NumPy array to a Python list
+    print("flag 1.38 cifar10 saving in a folder")
+    ood_datasets = out_of_dict_from_openood_for_mnist()
+    testloader = ood_datasets["cifar10"]
+
+    missing_indices = [int(x) for x in missing_indices]
+    # random.seed(1234)
+    # missing_indices= random.sample(missing_indices, 5)
+    # print(missing_indices)
+    # Create the directory for saving missing images if it doesn't exist
+    directory = os.path.join('/home/saiful/confidence-magesh_MR/confidence-magesh/missing_images', folder_name)
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+    
+    # Convert missing_indices to a set for faster lookup
+    missing_indices_set = set(missing_indices)
+    missing_images = []
+    for i, data in enumerate(testloader):
+        image_tensor = data["data"]
+        print("flag 1.39 image_tensor.shape :", image_tensor.shape)
+        
+        # # Stop after a certain number of batches (e.g., 10)
+        # if i== 10:
+        #     break
+        
+        for index in missing_indices_set:
+            print("flag 1.40 index :", index)
+            image = image_tensor[index]
+            image = image.numpy()
+            # Convert to numpy array and normalize pixel values to [0,1]
+            image_array = (image.transpose(1, 2, 0) - image.min()) / (image.max() - image.min())
+            plt.imsave(f'{directory}/missing_image_{index}.png', image_array)
+    print("-- indices images saved")
+    
+    
+def save_missing_indices_images_in_folder(missing_indices, folder_name, dataset):
+    print("save_missing_indices_images_in_folder()")
+    
+    print("flag 1.38 species saving in a folder")
+    ood_datasets = out_of_dict_from_openood_for_imagenet()
+    testloader = ood_datasets["species"]
+
+    missing_indices = [int(x) for x in missing_indices]
+    # random.seed(1234)
+    # missing_indices= random.sample(missing_indices, 5)
+    # print(missing_indices)
+    # Create the directory for saving missing images if it doesn't exist
+    directory = os.path.join('/home/saiful/confidence-magesh_MR/confidence-magesh/missing_images', folder_name)
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+    
+    # Convert missing_indices to a set for faster lookup
+    missing_indices_set = set(missing_indices)
+    missing_images = []
+    
+    for i, data in enumerate(testloader):
+        image_tensor = data["data"]
+        print("flag 1.39 image_tensor.shape :", image_tensor.shape)
+        print("flag 1.39 type(image_tensor) :", type(image_tensor))
+        print("flag 1.39 len(image_tensor) :", len(image_tensor))
+        # image_tensor_list.append(image_tensor)
+        
+        if i == 0:
+            image_tensor_final = image_tensor
+        else:
+            image_tensor_final = torch.cat((image_tensor_final, image_tensor), dim=0)
+    
+        # # # Stop after a certain number of batches (e.g., 5)
+        # if i== 5:
+        #     break
+        
+    for index in missing_indices_set:
+        print("flag 1.40 index :", index)
+        image = image_tensor_final[index]
+        image = image.numpy()
+        # Convert to numpy array and normalize pixel values to [0,1]
+        image_array = (image.transpose(1, 2, 0) - image.min()) / (image.max() - image.min())
+        plt.imsave(f'{directory}/missing_image_{index}.png', image_array)
+        
+
+    print("-- indices images saved")
+            
+def save_missing_document_indices_images_in_folder(missing_indices, folder_name):
+    print("save_missing_document_indices_images_in_folder()")
+
+    # Convert the NumPy array to a Python list
+    ood_datasets = load_document_ood_data()
+    testloader = ood_datasets["rvl_cdip_o"]
+    
+    # ood_datasets = out_of_dict_from_openood_for_mnist()
+    # testloader = ood_datasets["cifar10"]
+        
+    missing_indices = [int(x) for x in missing_indices]
+    # random.seed(1234)
+    # missing_indices= random.sample(missing_indices, 5)
+    # print(missing_indices)
+    # Create the directory for saving missing images if it doesn't exist
+    directory = os.path.join('/home/saiful/confidence-magesh_MR/confidence-magesh/missing_images', folder_name)
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+    
+    # Convert missing_indices to a set for faster lookup
+    missing_indices_set = set(missing_indices)
+    missing_images = []
+
+    for index in missing_indices_set:
+        
+        rvl_cdip_o_custom_dataset = load_document_rvl_cdip_o_CustomDataset()
+        image = rvl_cdip_o_custom_dataset[index]
+
+        # image = image_tensor[index]
+        image = image.numpy()
+        # Convert to numpy array and normalize pixel values to [0,1]
+        image_array = (image.transpose(1, 2, 0) - image.min()) / (image.max() - image.min())
+        plt.imsave(f'{directory}/missing_image_{index}.png', image_array)
+    print("-- indices images saved")
 
 if __name__ == "__main__":
     out_of_dict_from_openood_for_imagenet()
