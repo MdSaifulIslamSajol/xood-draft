@@ -111,7 +111,7 @@ class FeatureExtractor(nn.Module):
         self.knn_features = []
         i = 0
         # print(model)
-        supported_activations = nn.ReLU, nn.GELU, nn.LeakyReLU
+        supported_activations = nn.ReLU, nn.GELU, nn.LeakyReLU, nn.ReLU6
         print("\nExtracting Activation Layers:\n")
         for layer in model.modules():
             if isinstance(layer, supported_activations):
@@ -327,8 +327,15 @@ class FeatureExtractor(nn.Module):
         labels = []
         data_imgs = []
         features = {}
+        
+        # from torch.utils.data import DataLoader, TensorDataset
+        # batch_size = 128  # Define an appropriate batch size
+        # data_loader = DataLoader(images, batch_size=batch_size)
+
         with torch.no_grad():
+            # for i, data in enumerate(images):
             for i, data in enumerate(images):
+
                 # print(f"Computing predictions: {i + 1}/{len(images)}             ", end="\r")
                 # print(" 
                 # print("data shape: ", data.keys())
@@ -345,11 +352,14 @@ class FeatureExtractor(nn.Module):
 
                 # print("before size of data[0].shape: ", data[0].shape)
                 
-                if isinstance(data, list):
+                # if isinstance(data, list):
+                if isinstance(data, list) :
+                    # print("flag 1.542 it is going to predict() if statement")
+
                     data_img = data[0].to(self.device)
                     # print(" flag 1.522b len(data[1]):", len(data[1]) )
                     label = data[1].to(self.device)
-                    # print("flag 1.522a len(data)", len(data_img))
+                    # print("flag 1.522a len(data_img)", len(data_img))
                     # print("flag 1.522a len(label)", len(label))
                 else:
                     print("flag 1.542 it is going to predict() else statement")
@@ -365,14 +375,14 @@ class FeatureExtractor(nn.Module):
                 # print("size of data: ", data.shape)
                 
                 # sys.exit()
+                print("flag 1.543 i :", i)
                 out, feat = self(data_img)
                 #print("passing this line")
                 output.append(out)
                 
-                print(" flag 1.542d data_img.shape ",data_img.shape)
-
+                # print(" flag 1.542d data_img.shape ",data_img.shape)
                 data_img = torch.flatten(data_img, start_dim=1)
-                print(" flag 1.542e data_img.shape ",data_img.shape)
+                # print(" flag 1.542e data_img.shape ",data_img.shape)
 
                 data_imgs.append(data_img)
                 labels.append(label)
@@ -509,12 +519,14 @@ class Confidenciator:
         self.model = FeatureExtractor(model, transform, features)
         self.feat_cols = []
         #print("train set shape Before add_prediction_and_features : ", train_set.shape)
-        ##
+        
+        ## july 2
         if not mahala_xood:
             train_set_mahala = self.add_prediction_and_penultimate_features_dl_to_mahala(train_set)
         else:
             train_set_mahala = self.add_prediction_and_features_dl(train_set)
-            
+        ##   
+        
         # if knn_pen:
         #     train_set_knn = self.add_prediction_and_features_knn(train_set)
         # else:
@@ -544,6 +556,8 @@ class Confidenciator:
         self.scaler = StandardScaler()
         self.scaler_knn = StandardScaler()
         print("[flag 1.001 self.feat_cols]:\n", [self.feat_cols])
+        
+        # july 2
         x = self.pt.fit_transform(
             self.scaler.fit_transform(train_set_mahala[self.feat_cols]))
         
@@ -684,13 +698,16 @@ class Confidenciator:
             cal_img = cal["data"].to_numpy()
             label = cal['label']
 
-            #img_shape = (224, 224, 3)
-            
-            #cal_img = cal_img.reshape(cal_img.shape[0], *img_shape)
+            # img_shape = (224, 224, 3)
+            img_shape = (3, 224, 224)
+
+            cal_img = cal_img.reshape(cal_img.shape[0], *img_shape)
             cal_img = torch.tensor(cal_img, dtype=torch.float)
+            label = torch.tensor(cal['label'], dtype=torch.int32)
 
             print("flag 1.334b2 cal_img.shape : ",cal_img.shape)
             print("flag 1.334c2 label.shape : ",label.shape)
+
             cal_data = TensorDataset(cal_img, label)
             
             cal_dl = DataLoader(cal_data, batch_size=32)

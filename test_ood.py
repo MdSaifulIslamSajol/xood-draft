@@ -7,12 +7,14 @@ Created on Thu Jun 27 15:52:50 2024
 """
 
 import os
-os.environ["CUDA_VISIBLE_DEVICES"]="3,4,5"
+os.environ["CUDA_VISIBLE_DEVICES"]="1,2,3,4,5,6,7"
 
 
-    
+# import torch
 import torch.multiprocessing
-torch.multiprocessing.set_sharing_strategy('file_system')
+torch.multiprocessing.set_sharing_strategy('file_system')  # shared_memory
+# torch.multiprocessing.set_sharing_strategy('file_descriptor')  # shared_memory
+
 
 if torch.cuda.is_available():
     print("CUDA (GPU support) is available in PyTorch!")
@@ -141,10 +143,9 @@ def compute_confusion_metrix(in_dist, out_dist,dataset_name,featuretester_method
     
     return cm_scores
 
-def taylor_scores(in_dist, out_dist,dataset_name,featuretester_method):
+def taylor_scores(in_dist, out_dist):
     print("\ntest_ood.py ==> taylor_scores()")
-    print("featuretester_method 1.2 :",featuretester_method)
-    print("dataset_name 1.2 :",dataset_name)
+    # print("featuretester_method 1.2 :",featuretester_method)
     print("np.shape(in_dist): ",np.shape(in_dist))
     print("np.shape(out_dist): ",np.shape(out_dist))
     # print("(in_dist): ",in_dist )
@@ -528,6 +529,11 @@ class FeatureTester:
         print("Creating Taylor Table", flush=True)
         print(self.ood.keys())
 
+        # ## adding for now ==> has to check 
+        # pred = {name: f(df) for name, df in self.ood.items()}
+        # pred_clean = f(self.data["Test"])
+        #%
+
         all = np.concatenate(list(pred.values()) + [pred_clean])
         print(all)
         p_min, p_max = np.min(all), np.max(all)
@@ -868,14 +874,20 @@ if __name__ == "__main__":
     
     start_time = time.time()
     
-    # sys.stdout = open("console_output.txt", "w")
+    sys.stdout = open("console_output_svhn_vit.txt", "w")
     # test_ood("mnist", "lenet", 0.5)
     # test_ood("cifar10", "resnet", 0.5)
     # test_ood("cifar10", "cifar10_VitMSN", 0.5)
 
 
     # test_ood("cifar100", "resnet", 0.5)
-    test_ood("document", "resnet50_docu", 0.5)
+    # test_ood("document", "resnet50_docu", 0.5)
+    # test_ood("document", "mobilenet_v2_docu", 0.5)
+    # test_ood("document", "vit_docu", 0.5)
+    test_ood("svhn_224x224", "vit_svhn", 0.5)
+
+
+
 
     # test_ood("imagenet", "resnet50", 0.5)
     
@@ -895,7 +907,7 @@ if __name__ == "__main__":
     # for m in "resnet18", "resnet34", "resnet50", "resnet101":
     #     test_ood("imagenet", m)
     
-    print("\nExecution Complete") 
+    print("\nExecution Complete..") 
     time_taken = convert_seconds((time.time() - start_time))
     print("--- time taken :  %s ---" % time_taken)
     

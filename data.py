@@ -33,8 +33,11 @@ from OpenOOD.openood_id_ood_and_model_imagenet200 import id_dataloader_from_open
 from OpenOOD.Openood_v15_loader import ninco_dataloader, ssbhard_dataloader
 from OpenOOD.Openood_v15_loader import load_imagenet200_id_data_from_openood
 from document_id_ood_n_model_loader import load_document_id_data, load_document_ood_data,load_document_rvl_cdip_o_CustomDataset
+from svhn_id_ood_n_model_loader import load_svhn_224x224_id_data, load_svhn_224x224_ood_data
+# img_shape = (32, 32, 3)
 
-img_shape = (32, 32, 3)
+img_shape = (224, 224, 3)
+
 imagenet_transform = torchvision.transforms.Compose([
     torchvision.transforms.Resize(256),
     torchvision.transforms.CenterCrop(224),
@@ -54,11 +57,15 @@ def load_dataset(name):
     if name == "cifar10":
         img_shape = (32, 32, 3)
         return load_cifar10_id_data_from_openood()
-        # return load_data(cifar10.load_data())
+        # return load_data(cifar10.load_data()) 
         
     elif name == "svhn":
         img_shape = (32, 32, 3)
         return load_data(load_svhn_data())
+    
+    elif name == "svhn_224x224":
+        img_shape = (224, 224, 3)
+        return load_svhn_224x224_id_data()
     
     elif name == "mnist":
         img_shape = (28, 28, 3)
@@ -683,7 +690,16 @@ def out_of_dist(dataset_name, debug=False):
         #     "Rvl_Cdip_O" : document_ood["rvl_cdip_o"]
             
         # })
-     
+    elif dataset_name == "svhn_224x224":
+        svhn_224x224_ood = load_svhn_224x224_ood_data() 
+        
+        datasets.update({
+        
+        "TinyImageNet" : svhn_224x224_ood["tiny_imagenet"],
+        "LSUN" : svhn_224x224_ood["Lsun"],
+        "ISUN" : svhn_224x224_ood["isun"],
+        "Cifar10" : svhn_224x224_ood["cifar10"],
+    })
      
     # elif dataset_name == "imagenet":
     #     imagenet_ood = out_of_dict_from_openood_for_imagenet()
